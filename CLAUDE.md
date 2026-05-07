@@ -27,6 +27,8 @@ Use these in order:
 - `/speckit-constitution` — project principles (done ✅)
 - `/speckit-specify` — full system specification (done ✅)
 - `/speckit-clarify` — clarifying questions (done ✅)
-- `/speckit-plan` — implementation plan
-- `/speckit-tasks` — task list
+- `/speckit-plan` — implementation plan (done ✅)
+- `/speckit-tasks` — task list (done ✅)
 - `/speckit-implement` — implementation (done ✅)
+- `/speckit-test` — write tests for implemented features (done ✅)
+- `/speckit-checklist` — final compliance checklist against spec

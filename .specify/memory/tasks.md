@@ -225,6 +225,31 @@
 
 ---
 
+## Phase 8: Tests
+
+**Purpose**: Verify data storage layer and provider integrations with automated tests
+
+- [ ] T036 Install Vitest and configure — `npm install -D vitest @vitest/coverage-v8`; create `vitest.config.ts` with `@` path alias; add `"test": "vitest"` script to `package.json`
+- [ ] T037 [P] Create `__tests__/helpers/db.ts` — in-memory SQLite test DB factory using `better-sqlite3(':memory:')` + Drizzle schema; exports `makeTestDb()` returning typed `db` + `sqlite` instances
+- [ ] T038 [P] Unit tests `__tests__/db/marketData.test.ts`:
+  - `insertMarketDataBatch` — inserts rows, returns count, handles upsert/conflict correctly
+  - `getDatasetSummary` — groups by symbol/provider/timeframe, counts rows, returns min/max dates
+  - `getCandles` — filters by symbol, timeframe, timestamp range
+  - `deleteMarketData` — removes rows by symbol+provider, returns deleted count
+- [ ] T039 [P] Unit tests `__tests__/db/downloadJobs.test.ts`:
+  - `createDownloadJob` — inserts record, returns generated id
+  - `updateDownloadJob` — partial updates (status, insertedRows, errorMessage)
+  - `getDownloadJob` — returns job by id, null when missing
+  - `listDownloadJobs` — returns last 50 ordered by createdAt desc
+- [ ] T040 [P] Unit tests `__tests__/providers/yahoo.test.ts`:
+  - `getAvailableRange` — returns correct window for each timeframe (1m→7d, 5m→60d, 1h→730d, 1d→36500d)
+  - `validateSymbol` — resolves for valid symbol; throws for invalid (mock `yahoo-finance2`)
+  - `fetchCandles` — returns Candle[] shaped correctly; maps interval strings correctly (mock `yahoo-finance2`)
+- [ ] T041 [P] API route tests `__tests__/api/datasets.test.ts` — GET `/api/data-storage/datasets` (summary), DELETE with symbol+provider params
+- [ ] T042 [P] API route tests `__tests__/api/jobs.test.ts` — POST `/api/data-storage/jobs` (creates job + triggers download), GET returns job list
+
+---
+
 ## Dependencies & Execution Order
 
 - **Phase 1** (Setup): Start immediately, no dependencies

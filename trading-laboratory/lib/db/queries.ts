@@ -340,7 +340,8 @@ export function insertMarketDataBatch(
 ): number {
   if (rows.length === 0) return 0;
   let inserted = 0;
-  const chunkSize = 5000;
+  // SQLite caps bind variables at 32766; market_data has 10 columns → max 3276 rows/chunk
+  const chunkSize = 3000;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize).map((r) => ({ ...r, id: uuidv4() }));
     const result = db.insert(marketData).values(chunk).onConflictDoNothing().run();
