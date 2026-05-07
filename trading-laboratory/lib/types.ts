@@ -1,7 +1,7 @@
 // Shared TypeScript types for Trading Laboratory
 
 export type Market = 'crypto' | 'us-futures' | 'kr-futures';
-export type DataSource = 'binance' | 'alphavantage' | 'krx';
+export type DataSource = 'binance' | 'alphavantage' | 'krx' | 'yahoo';
 export type Timeframe = '1m' | '5m' | '1h' | 'day' | 'week';
 export type Indicator = 'RSI' | 'MACD' | '20MA' | '50MA' | 'volume' | 'order-book';
 export type PropFirmRuleName =

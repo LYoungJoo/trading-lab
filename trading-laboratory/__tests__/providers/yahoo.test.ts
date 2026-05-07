@@ -151,7 +151,8 @@ describe('fetchCandles', () => {
 
   it('throws for unsupported timeframe', async () => {
     await expect(
-      yahooProvider.fetchCandles({ symbol: 'AAPL', timeframe: '3m', startDate: '2024-01-01', endDate: '2024-01-31' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      yahooProvider.fetchCandles({ symbol: 'AAPL', timeframe: '3m' as any, startDate: '2024-01-01', endDate: '2024-01-31' })
     ).rejects.toThrow('Unsupported timeframe');
   });
 

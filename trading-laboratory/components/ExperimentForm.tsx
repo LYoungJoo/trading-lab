@@ -5,7 +5,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type {
   Market,
-  DataSource,
   Timeframe,
   Indicator,
   PropFirmRuleName,
@@ -26,11 +25,19 @@ interface DatasetSummary {
 // Constants
 // ─────────────────────────────────────────────────────────────
 
-const MARKET_OPTIONS: { label: string; value: Market; dataSource: DataSource }[] = [
-  { label: 'Crypto (Binance)', value: 'crypto', dataSource: 'binance' },
-  { label: 'US Futures (Alpha Vantage)', value: 'us-futures', dataSource: 'alphavantage' },
-  { label: 'KR Futures (KRX)', value: 'kr-futures', dataSource: 'krx' },
-];
+const PROVIDER_LABELS: Record<string, string> = {
+  yahoo: 'Yahoo Finance',
+  binance: 'Binance',
+  alphavantage: 'Alpha Vantage',
+  krx: 'KRX',
+};
+
+const PROVIDER_TO_MARKET: Record<string, Market> = {
+  yahoo: 'us-futures',
+  binance: 'crypto',
+  alphavantage: 'us-futures',
+  krx: 'kr-futures',
+};
 
 const TIMEFRAME_OPTIONS: { label: string; value: Timeframe }[] = [
   { label: '1 min', value: '1m' },
@@ -68,8 +75,7 @@ interface ExperimentFormProps {
 
 interface FormState {
   name: string;
-  market: Market;
-  dataSource: DataSource;
+  provider: string;
   symbol: string;
   startDate: string;
   endDate: string;
@@ -127,9 +133,8 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
 
     return {
       name: defaultValues?.name ?? '',
-      market: defaultValues?.market ?? 'crypto',
-      dataSource: defaultValues?.dataSource ?? 'binance',
-      symbol: defaultValues?.symbol ?? 'BTCUSDT',
+      provider: defaultValues?.dataSource ?? '',
+      symbol: defaultValues?.symbol ?? '',
       startDate: defaultValues?.dateRange?.start ?? '',
       endDate: defaultValues?.dateRange?.end ?? '',
       timeframes: defaultValues?.timeframes ?? ['1h'],
@@ -151,28 +156,33 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
         if (!mounted) return;
         setAvailableDatasets(data);
         if (data.length > 0 && !defaultValues?.symbol) {
-          const firstSymbol = data[0].symbol;
-          const datasets = data.filter((d) => d.symbol === firstSymbol);
+          const firstProvider = data[0].provider;
+          const firstSymbol = data.find((d) => d.provider === firstProvider)?.symbol ?? data[0].symbol;
+          const datasets = data.filter((d) => d.symbol === firstSymbol && d.provider === firstProvider);
           const minDate = datasets.reduce((m, d) => (d.minDate < m ? d.minDate : m), datasets[0].minDate);
           const maxDate = datasets.reduce((m, d) => (d.maxDate > m ? d.maxDate : m), datasets[0].maxDate);
-          const provider = datasets[0].provider;
-          const dataSource: DataSource = provider === 'binance' ? 'binance' : 'binance';
-          setForm((f) => ({ ...f, symbol: firstSymbol, startDate: minDate, endDate: maxDate, dataSource }));
+          setForm((f) => ({ ...f, provider: firstProvider, symbol: firstSymbol, startDate: minDate, endDate: maxDate }));
         }
       })
       .catch(() => {});
     return () => { mounted = false; };
   }, [defaultValues?.symbol]);
 
-  const downloadedSymbols = Array.from(new Set(availableDatasets.map((d) => d.symbol)));
-  const hasDownloadedData = downloadedSymbols.length > 0;
+  const availableProviders = Array.from(new Set(availableDatasets.map((d) => d.provider)));
+  const hasDownloadedData = availableProviders.length > 0;
 
-  const selectedSymbolDatasets = availableDatasets.filter((d) => d.symbol === form.symbol);
+  const symbolsForProvider = Array.from(
+    new Set(availableDatasets.filter((d) => d.provider === form.provider).map((d) => d.symbol))
+  );
+
+  const selectedDatasets = availableDatasets.filter(
+    (d) => d.symbol === form.symbol && d.provider === form.provider
+  );
   const selectedSymbolRange =
-    selectedSymbolDatasets.length > 0
+    selectedDatasets.length > 0
       ? {
-          minDate: selectedSymbolDatasets.reduce((m, d) => (d.minDate < m ? d.minDate : m), selectedSymbolDatasets[0].minDate),
-          maxDate: selectedSymbolDatasets.reduce((m, d) => (d.maxDate > m ? d.maxDate : m), selectedSymbolDatasets[0].maxDate),
+          minDate: selectedDatasets.reduce((m, d) => (d.minDate < m ? d.minDate : m), selectedDatasets[0].minDate),
+          maxDate: selectedDatasets.reduce((m, d) => (d.maxDate > m ? d.maxDate : m), selectedDatasets[0].maxDate),
         }
       : null;
 
@@ -180,34 +190,41 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
     '1m': '1m', '5m': '5m', '1h': '1h', '1d': 'day', '1w': 'week',
   };
   const availableTimeframesForSymbol: Set<Timeframe> = new Set(
-    selectedSymbolDatasets
+    selectedDatasets
       .map((d) => dbToInternalTimeframe[d.timeframe])
       .filter((tf): tf is Timeframe => tf !== undefined)
   );
 
-  function handleDownloadedSymbolChange(sym: string) {
-    const datasets = availableDatasets.filter((d) => d.symbol === sym);
-    if (datasets.length === 0) return;
-    const minDate = datasets.reduce((m, d) => (d.minDate < m ? d.minDate : m), datasets[0].minDate);
-    const maxDate = datasets.reduce((m, d) => (d.maxDate > m ? d.maxDate : m), datasets[0].maxDate);
-    const provider = datasets[0].provider;
-    const dataSource: DataSource = provider === 'binance' ? 'binance' : 'binance';
-    const newAvailableTfs: Set<Timeframe> = new Set(
-      datasets.map((d) => dbToInternalTimeframe[d.timeframe]).filter((tf): tf is Timeframe => tf !== undefined)
+  function handleProviderChange(provider: string) {
+    const providerDatasets = availableDatasets.filter((d) => d.provider === provider);
+    if (providerDatasets.length === 0) {
+      setForm((f) => ({ ...f, provider, symbol: '', startDate: '', endDate: '' }));
+      return;
+    }
+    const firstSymbol = providerDatasets[0].symbol;
+    const symDatasets = providerDatasets.filter((d) => d.symbol === firstSymbol);
+    const minDate = symDatasets.reduce((m, d) => (d.minDate < m ? d.minDate : m), symDatasets[0].minDate);
+    const maxDate = symDatasets.reduce((m, d) => (d.maxDate > m ? d.maxDate : m), symDatasets[0].maxDate);
+    const newTfs: Set<Timeframe> = new Set(
+      symDatasets.map((d) => dbToInternalTimeframe[d.timeframe]).filter((tf): tf is Timeframe => tf !== undefined)
     );
     setForm((f) => ({
-      ...f, symbol: sym, startDate: minDate, endDate: maxDate, dataSource,
-      timeframes: f.timeframes.filter((tf) => newAvailableTfs.has(tf)),
+      ...f, provider, symbol: firstSymbol, startDate: minDate, endDate: maxDate,
+      timeframes: f.timeframes.filter((tf) => newTfs.has(tf)),
     }));
   }
 
-  function handleMarketChange(market: Market) {
-    const option = MARKET_OPTIONS.find((o) => o.value === market);
-    const defaultSymbols: Record<Market, string> = {
-      crypto: 'BTCUSDT', 'us-futures': 'ES', 'kr-futures': '101C6000',
-    };
+  function handleSymbolChange(sym: string) {
+    const datasets = availableDatasets.filter((d) => d.symbol === sym && d.provider === form.provider);
+    if (datasets.length === 0) return;
+    const minDate = datasets.reduce((m, d) => (d.minDate < m ? d.minDate : m), datasets[0].minDate);
+    const maxDate = datasets.reduce((m, d) => (d.maxDate > m ? d.maxDate : m), datasets[0].maxDate);
+    const newTfs: Set<Timeframe> = new Set(
+      datasets.map((d) => dbToInternalTimeframe[d.timeframe]).filter((tf): tf is Timeframe => tf !== undefined)
+    );
     setForm((f) => ({
-      ...f, market, dataSource: option?.dataSource ?? 'binance', symbol: defaultSymbols[market],
+      ...f, symbol: sym, startDate: minDate, endDate: maxDate,
+      timeframes: f.timeframes.filter((tf) => newTfs.has(tf)),
     }));
   }
 
@@ -251,8 +268,8 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
     if (!validate()) return;
 
     const config: ExperimentConfig = {
-      market: form.market,
-      dataSource: form.dataSource,
+      market: PROVIDER_TO_MARKET[form.provider] ?? 'us-futures',
+      dataSource: form.provider as ExperimentConfig['dataSource'],
       symbol: form.symbol.trim().toUpperCase(),
       dateRange: { start: form.startDate, end: form.endDate },
       timeframes: form.timeframes,
@@ -329,106 +346,100 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
       <div className="apple-card">
         <p style={sectionLabel}>Market Configuration</p>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={fieldLabel} htmlFor="market">Market</label>
-          <SelectWrap>
-            <select
-              id="market"
-              value={form.market}
-              onChange={(e) => handleMarketChange(e.target.value as Market)}
-              disabled={isLoading}
-              style={{ ...inputBase, paddingRight: 36, cursor: 'pointer', opacity: isLoading ? 0.6 : 1 } as React.CSSProperties}
-            >
-              {MARKET_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </SelectWrap>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <label style={{ ...fieldLabel, marginBottom: 0 }} htmlFor="symbol">
-              Symbol <span style={{ color: '#b91c1c' }}>*</span>
-            </label>
-            {hasDownloadedData && (
-              <span style={{
-                fontSize: 11, fontWeight: 600, color: '#065f46', backgroundColor: '#ecfdf5',
-                borderRadius: 9999, padding: '2px 8px', letterSpacing: '0.04em',
-              }}>
-                Downloaded data
-              </span>
-            )}
+        {!hasDownloadedData ? (
+          <div style={{
+            border: '1px solid #fde68a', backgroundColor: '#fff8e1',
+            borderRadius: 11, padding: '12px 16px', fontSize: 14, color: '#92400e',
+          }}>
+            No data downloaded yet.{' '}
+            <Link href="/data-storage" style={{ color: '#0066cc', textDecoration: 'none', fontWeight: 500 }}>
+              Go to Data Storage
+            </Link>{' '}
+            to download market data first.
           </div>
-          {hasDownloadedData ? (
-            <SelectWrap>
-              <select
-                id="symbol"
-                value={form.symbol}
-                onChange={(e) => { if (e.target.value) handleDownloadedSymbolChange(e.target.value); }}
-                disabled={isLoading}
-                style={{ ...inputBase, paddingRight: 36, cursor: 'pointer', opacity: isLoading ? 0.6 : 1 } as React.CSSProperties}
-              >
-                {downloadedSymbols.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </SelectWrap>
-          ) : (
-            <div style={{
-              border: '1px solid #fde68a', backgroundColor: '#fff8e1',
-              borderRadius: 11, padding: '12px 16px', fontSize: 14, color: '#92400e',
-            }}>
-              No data downloaded yet.{' '}
-              <Link href="/data-storage" style={{ color: '#0066cc', textDecoration: 'none', fontWeight: 500 }}>
-                Go to Data Storage
-              </Link>{' '}
-              to download market data first.
+        ) : (
+          <>
+            {/* Provider */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={fieldLabel} htmlFor="provider">Provider</label>
+              <SelectWrap>
+                <select
+                  id="provider"
+                  value={form.provider}
+                  onChange={(e) => handleProviderChange(e.target.value)}
+                  disabled={isLoading}
+                  style={{ ...inputBase, paddingRight: 36, cursor: 'pointer', opacity: isLoading ? 0.6 : 1 } as React.CSSProperties}
+                >
+                  {availableProviders.map((p) => (
+                    <option key={p} value={p}>{PROVIDER_LABELS[p] ?? p}</option>
+                  ))}
+                </select>
+              </SelectWrap>
             </div>
-          )}
-          {errors.symbol && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.symbol}</p>}
-        </div>
 
-        {selectedSymbolRange && (
-          <p style={{ fontSize: 12, color: '#7a7a7a', marginBottom: 16 }}>
-            Date range locked to downloaded data: {selectedSymbolRange.minDate} → {selectedSymbolRange.maxDate}
-          </p>
+            {/* Symbol */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={fieldLabel} htmlFor="symbol">
+                Symbol <span style={{ color: '#b91c1c' }}>*</span>
+              </label>
+              <SelectWrap>
+                <select
+                  id="symbol"
+                  value={form.symbol}
+                  onChange={(e) => { if (e.target.value) handleSymbolChange(e.target.value); }}
+                  disabled={isLoading || symbolsForProvider.length === 0}
+                  style={{ ...inputBase, paddingRight: 36, cursor: 'pointer', opacity: isLoading ? 0.6 : 1 } as React.CSSProperties}
+                >
+                  {symbolsForProvider.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </SelectWrap>
+              {errors.symbol && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.symbol}</p>}
+            </div>
+
+            {selectedSymbolRange && (
+              <p style={{ fontSize: 12, color: '#7a7a7a', marginBottom: 16 }}>
+                Date range locked to downloaded data: {selectedSymbolRange.minDate} → {selectedSymbolRange.maxDate}
+              </p>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={fieldLabel} htmlFor="start-date">
+                  Start Date <span style={{ color: '#b91c1c' }}>*</span>
+                </label>
+                <input
+                  id="start-date"
+                  type="date"
+                  value={form.startDate}
+                  min={selectedSymbolRange?.minDate}
+                  max={selectedSymbolRange?.maxDate}
+                  onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+                  disabled={isLoading}
+                  style={{ ...inputBase, opacity: isLoading ? 0.6 : 1 }}
+                />
+                {errors.startDate && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.startDate}</p>}
+              </div>
+              <div>
+                <label style={fieldLabel} htmlFor="end-date">
+                  End Date <span style={{ color: '#b91c1c' }}>*</span>
+                </label>
+                <input
+                  id="end-date"
+                  type="date"
+                  value={form.endDate}
+                  min={selectedSymbolRange?.minDate}
+                  max={selectedSymbolRange?.maxDate}
+                  onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+                  disabled={isLoading}
+                  style={{ ...inputBase, opacity: isLoading ? 0.6 : 1 }}
+                />
+                {errors.endDate && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.endDate}</p>}
+              </div>
+            </div>
+          </>
         )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={fieldLabel} htmlFor="start-date">
-              Start Date <span style={{ color: '#b91c1c' }}>*</span>
-            </label>
-            <input
-              id="start-date"
-              type="date"
-              value={form.startDate}
-              min={selectedSymbolRange?.minDate}
-              max={selectedSymbolRange?.maxDate}
-              onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-              disabled={isLoading || hasDownloadedData}
-              style={{ ...inputBase, opacity: (isLoading || hasDownloadedData) ? 0.6 : 1 }}
-            />
-            {errors.startDate && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.startDate}</p>}
-          </div>
-          <div>
-            <label style={fieldLabel} htmlFor="end-date">
-              End Date <span style={{ color: '#b91c1c' }}>*</span>
-            </label>
-            <input
-              id="end-date"
-              type="date"
-              value={form.endDate}
-              min={selectedSymbolRange?.minDate}
-              max={selectedSymbolRange?.maxDate}
-              onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-              disabled={isLoading || hasDownloadedData}
-              style={{ ...inputBase, opacity: (isLoading || hasDownloadedData) ? 0.6 : 1 }}
-            />
-            {errors.endDate && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.endDate}</p>}
-          </div>
-        </div>
       </div>
 
       {/* Timeframes */}
