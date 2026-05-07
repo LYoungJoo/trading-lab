@@ -6,9 +6,6 @@ import type {
   ComputedIndicators,
   Timeframe,
 } from '../types';
-import { fetchOHLCV as fetchBinance } from './binance';
-import { fetchOHLCV as fetchAlphaVantage } from './alphavantage';
-import { fetchOHLCV as fetchKrx } from './krx';
 import { getCandles } from '../db/queries';
 
 // ─────────────────────────────────────────────────────────────
@@ -149,7 +146,7 @@ function pickPrimaryTimeframe(timeframes: Timeframe[]): Timeframe {
 export async function fetchMarketData(
   config: ExperimentConfig
 ): Promise<MarketData> {
-  const { dataSource, symbol, dateRange, timeframes, indicators } = config;
+  const { symbol, dateRange, timeframes, indicators } = config;
 
   const primaryTimeframe = pickPrimaryTimeframe(timeframes);
 
@@ -171,68 +168,29 @@ export async function fetchMarketData(
 
   let candles: Candle[];
 
-  if (localCandles.length > 0) {
-    // Verify the local data covers the requested date range.
-    // "Covers" = the earliest local candle is within 2 days of startMs and
-    //             the latest local candle is within 2 days of endMs.
-    // This prevents silently using a sparse or misaligned local dataset.
-    const TWO_DAYS_MS = 2 * 86400000;
-    const localStart = localCandles[0].timestamp;
-    const localEnd = localCandles[localCandles.length - 1].timestamp;
-    const coversRange =
-      localStart <= startMs + TWO_DAYS_MS && localEnd >= endMs - TWO_DAYS_MS;
-
-    if (coversRange) {
-      console.log(
-        `[fetchMarketData] Using ${localCandles.length} locally stored candles for ${symbol}/${dbTimeframe}`
-      );
-      candles = localCandles;
-    } else {
-      console.log(
-        `[fetchMarketData] Local data for ${symbol}/${dbTimeframe} does not cover the full requested range ` +
-        `(local: ${new Date(localStart).toISOString().split('T')[0]}–${new Date(localEnd).toISOString().split('T')[0]}, ` +
-        `requested: ${dateRange.start}–${dateRange.end}). Falling back to live API.`
-      );
-      // Fall through to live API fetch below
-      candles = [];
-    }
-  } else {
-    candles = [];
-  }
-
-  if (candles.length === 0) {
-    // ─── Fall back to live API ──────────────────────────────
-    console.log(
-      `[fetchMarketData] No local data for ${symbol}/${dbTimeframe} — fetching from ${dataSource}`
+  if (localCandles.length === 0) {
+    throw new Error(
+      `No local data found for ${symbol} (${dbTimeframe}). ` +
+      `Please download data first via the Data Storage page before running experiments.`
     );
-
-    switch (dataSource) {
-      case 'binance': {
-        candles = await fetchBinance(symbol, primaryTimeframe, startMs, endMs);
-        break;
-      }
-
-      case 'alphavantage': {
-        candles = await fetchAlphaVantage(
-          symbol,
-          primaryTimeframe,
-          dateRange.start,
-          dateRange.end
-        );
-        break;
-      }
-
-      case 'krx': {
-        candles = await fetchKrx(symbol, dateRange.start, dateRange.end);
-        break;
-      }
-
-      default: {
-        const exhaustive: never = dataSource;
-        throw new Error(`Unknown dataSource: ${exhaustive}`);
-      }
-    }
   }
+
+  // Verify coverage: earliest candle must be on or before startMs, latest on or after endMs.
+  const localStart = localCandles[0].timestamp;
+  const localEnd = localCandles[localCandles.length - 1].timestamp;
+  if (localStart > startMs || localEnd < endMs) {
+    throw new Error(
+      `Local data for ${symbol} (${dbTimeframe}) covers ` +
+      `${new Date(localStart).toISOString().split('T')[0]}–${new Date(localEnd).toISOString().split('T')[0]} ` +
+      `but the experiment requests ${dateRange.start}–${dateRange.end}. ` +
+      `Please download data for the full date range via the Data Storage page.`
+    );
+  }
+
+  console.log(
+    `[fetchMarketData] Using ${localCandles.length} locally stored candles for ${symbol}/${dbTimeframe}`
+  );
+  const candles = localCandles;
 
   // ─── Compute indicators ───────────────────────────────────
   const closes = candles.map((c) => c.close);

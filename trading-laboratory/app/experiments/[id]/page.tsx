@@ -317,9 +317,14 @@ export default function ExperimentDetailPage() {
           >
             ← Back to experiments
           </Link>
-          <div className="flex items-center gap-3 mt-3 flex-wrap">
-            <h1 className="text-2xl font-bold">{experiment.name}</h1>
-            <StatusBadge status={experiment.status} />
+          <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold">{experiment.name}</h1>
+              <StatusBadge status={experiment.status} />
+            </div>
+            <Link href={`/experiments/new?from=${id}`}>
+              <Button variant="outline" size="sm">Duplicate Config</Button>
+            </Link>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             Created {new Date(experiment.createdAt).toLocaleString()}

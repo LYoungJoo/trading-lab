@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getExperiment,
+  listExperiments,
   saveStrategy,
   updateExperimentStatus,
 } from '@/lib/db/queries';
@@ -44,7 +45,17 @@ export async function POST(
       );
     }
 
-    // Allow re-running failed experiments (do not block on 'failed' status)
+    // Enforce max 3 concurrent running experiments
+    const allExperiments = await listExperiments();
+    const runningCount = allExperiments.filter((e) => e.status === 'running').length;
+    if (runningCount >= 3) {
+      return NextResponse.json(
+        { error: 'Maximum of 3 experiments can run concurrently. Please wait for one to finish.' },
+        { status: 429 }
+      );
+    }
+
+    // Allow re-running failed or completed experiments
 
     // Mark as running
     await updateExperimentStatus(id, 'running');
