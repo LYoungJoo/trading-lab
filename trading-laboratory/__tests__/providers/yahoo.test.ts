@@ -1,17 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// vi.hoisted so these refs are accessible inside the vi.mock factory
+const { mockQuote, mockChart } = vi.hoisted(() => ({
+  mockQuote: vi.fn(),
+  mockChart: vi.fn(),
+}));
+
 vi.mock('yahoo-finance2', () => ({
-  default: {
-    quote: vi.fn(),
-    chart: vi.fn(),
+  default: class {
+    quote = mockQuote;
+    chart = mockChart;
   },
 }));
 
-import yahooFinance from 'yahoo-finance2';
 import { yahooProvider } from '@/lib/providers/yahoo';
-
-const mockQuote = vi.mocked(yahooFinance.quote);
-const mockChart = vi.mocked(yahooFinance.chart);
 
 beforeEach(() => {
   vi.clearAllMocks();

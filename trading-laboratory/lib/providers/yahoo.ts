@@ -1,4 +1,5 @@
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
+const yahooFinance = new YahooFinance();
 import type { DataProvider, DownloadRequest, ProviderCandle, ProviderInfo } from './types';
 
 // Note: yahoo-finance2 may need TLS relaxation in certain dev environments.
