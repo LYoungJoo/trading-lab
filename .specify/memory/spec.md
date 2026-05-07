@@ -4,6 +4,16 @@
 **Created**: 2026-05-02
 **Status**: Draft
 
+## Clarifications
+
+### Session 2026-05-07
+
+- Q: Should the experiment run page stream Claude's output word-by-word or show the full result when done? → A: Full execution log only when done — no streaming in v1.
+- Q: What is the maximum number of experiments that can run concurrently? → A: 3 — a 4th run attempt while 3 are active is rejected with a clear error.
+- Q: Can completed experiments be re-run, or only failed ones? → A: Both failed and completed experiments can be re-run (resets to running, overwrites log and strategy).
+- Q: Should experiments fall back to live API calls when local data is missing? → A: No — local data is mandatory. If no downloaded data covers the experiment's symbol/timeframe/date range, the run fails immediately with an error directing the user to download data first.
+- Q: Where should the "Duplicate Config" button appear in the UI? → A: On both the experiment list card and the experiment detail page.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Run an Experiment and View Strategy (Priority: P1)
@@ -18,7 +28,7 @@ A user opens the dashboard, creates a new experiment by filling in a config form
 
 1. **Given** a completed config form, **When** the user clicks Run, **Then** the strategy agent executes and outputs at least one setup (A) with entry condition, fund allocation %, stop-loss, and reasoning
 2. **Given** the strategy result is displayed, **When** the user reads it, **Then** setups are organized by category (time-based, indicator-based, price-based) for easy reading
-3. **Given** the strategy agent is running, **When** streaming is available, **Then** output appears progressively; otherwise full execution log is shown on completion
+3. **Given** the strategy agent is running, **When** the run completes, **Then** the full execution log is shown at once (no streaming in v1)
 
 ---
 
@@ -102,17 +112,17 @@ A user needs historical OHLCV data for a symbol before running experiments. They
 ### Functional Requirements
 
 - **FR-001**: System MUST provide a form-based experiment config with fields: market (crypto/US futures/Korean futures), date range, timeframes (multi-select: 1m, 5m, 1h, day, week), indicators (toggle: RSI, MACD, 20MA, 50MA, etc.), prop firm rules (toggle per rule: Daily Loss Limit, Max Loss, Profit Target, Time Limit, Consistency)
-- **FR-002**: System MUST fetch historical OHLCV data from the configured source: Binance API (crypto), Alpha Vantage (US futures), KRX Open API (Korean futures)
+- **FR-002**: System MUST read historical OHLCV data exclusively from local SQLite storage; live API providers (Binance, Alpha Vantage, KRX) are used ONLY in the Data Storage download flow, never during experiment runs
 - **FR-003**: System MUST pass only config-enabled data and indicators to the strategy agent — no additional context
 - **FR-004**: Strategy agent MUST output A–C setups (1–5 allowed) in natural language, each including: entry condition, fund allocation %, stop-loss logic, and reasoning
 - **FR-005**: System MUST display setups structured by category: time-based conditions, indicator-based conditions, price-based conditions
 - **FR-006**: System MUST show fund allocation breakdown across all setups (must sum to ≤ 100%)
-- **FR-007**: System MUST support parallel experiment execution — multiple experiments can run simultaneously
-- **FR-008**: System MUST show execution log (streaming preferred; full log on completion as fallback)
+- **FR-007**: System MUST support parallel experiment execution with a maximum of 3 concurrent running experiments; a 4th run attempt while 3 are active MUST be rejected with a clear error message
+- **FR-008**: System MUST show the full execution log when the strategy agent completes — no streaming in v1
 - **FR-009**: System MUST maintain an experiments list ranked by composite evaluation score (descending); unevaluated experiments shown separately
 - **FR-010**: Evaluation agent MUST score each experiment on: prop firm rule compliance (0–100), risk quality (0–100), clarity (0–100); composite = weighted average
 - **FR-011**: Evaluation agent execution MUST be optional and manually triggered
-- **FR-012**: System MUST support config duplication for easy experiment variation
+- **FR-012**: System MUST support config duplication via a "Duplicate Config" button present on both the experiment list card and the experiment detail page; both navigate to the new experiment form with all fields pre-filled via `?from=[experimentId]`
 - **FR-013**: System MUST NOT require authentication — local use only
 - **FR-014**: System MUST NOT connect to any live exchange or place real orders
 
@@ -125,7 +135,7 @@ A user needs historical OHLCV data for a symbol before running experiments. They
 - **FR-019**: System MUST insert candles in batches of 5000 using `onConflictDoNothing` on the unique index (symbol, timeframe, timestamp), reporting only actual inserted rows
 - **FR-020**: System MUST expose a datasets endpoint returning all stored symbols with provider, timeframe, row count, minDate, and maxDate
 - **FR-021**: System MUST allow deleting all data for a symbol/provider pair; the endpoint returns the count of deleted rows
-- **FR-022**: System MUST use a DB-first data strategy: when `fetchMarketData` is called, it checks local SQLite first; local data is used if the earliest candle is within 2 days of the requested start AND the latest candle is within 2 days of the requested end; only falls back to a live API call when coverage is insufficient
+- **FR-022**: System MUST read market data exclusively from local SQLite; if no locally downloaded data covers the experiment's symbol, timeframe, and date range, the run MUST fail immediately with a clear error directing the user to download data first via the Data Storage page — no live API fallback
 - **FR-023**: Experiment config form MUST show a dropdown of locally downloaded symbols for the selected market; selecting one auto-fills the date range from the stored data extents; manual entry is still available
 
 ### Agent Behavior Contracts
@@ -137,7 +147,7 @@ A user needs historical OHLCV data for a symbol before running experiments. They
 
 ### Operational Behaviors
 
-- **FR-028**: Experiments in `failed` status MAY be re-run; the run endpoint resets status to `running` and overwrites the previous execution log and strategy
+- **FR-028**: Experiments in `failed` or `complete` status MAY be re-run; the run endpoint resets status to `running` and overwrites the previous execution log and strategy
 - **FR-029**: If no experiment name is provided, the system generates one as `{market} {symbol} {startDate}–{endDate}`
 - **FR-030**: Execution log entries MUST use the format `[ISO-8601 timestamp] message`; the log is stored in the `execution_log` column and shown collapsibly in the UI
 
@@ -162,7 +172,7 @@ A user needs historical OHLCV data for a symbol before running experiments. They
 - **SC-003**: Mock evaluation always returns scores for all 3 dimensions within 60 seconds of being triggered
 - **SC-004**: Running 3 experiments simultaneously does not cause any single experiment to fail or corrupt another's results
 - **SC-005**: Strategy display is readable without domain expertise — categories clearly label what type of condition each setup uses
-- **SC-006**: When a downloaded dataset covers the experiment's requested date range (within 2 days tolerance), zero live API calls are made during the experiment run
+- **SC-006**: Zero live API calls are made during any experiment run — all market data is read from local SQLite; missing data causes an immediate failure with a clear error
 - **SC-007**: A download job for 1 year of daily data completes and is reflected in the datasets table within 30 seconds of being triggered
 
 ## Assumptions
@@ -172,7 +182,7 @@ A user needs historical OHLCV data for a symbol before running experiments. They
 - Strategy agent is Claude (model configurable via env var); evaluation agent is also Claude
 - Data APIs are called at experiment run time, not pre-fetched; API keys provided via environment variables
 - Korean futures scope = KOSPI 200 futures via KRX Open API; US futures = CME products via Alpha Vantage
-- Streaming Claude output may not be available in v1 depending on implementation complexity; full log is acceptable fallback
+- No streaming in v1 — the full execution log is shown only after the strategy agent completes
 - Maximum of 5 setups per strategy (A–E); minimum 1
 - All fund allocations from the agent must sum to ≤ 100%; if the agent exceeds 100%, the system normalizes all allocations proportionally and sets `allocationNormalized = true` (displayed as a warning banner, not an error)
 - Prop firm rules are non-negotiable except Consistency Rule which is toggleable per config
@@ -180,4 +190,4 @@ A user needs historical OHLCV data for a symbol before running experiments. They
 - The `strategies.allocationNormalized` column (integer 0|1) is stored in the DB for auditability; all downstream reads hydrate it as a boolean
 - All evaluation results carry `isMock = true` in v1; the flag exists to distinguish future real compliance checks from the current agent-scored approximation
 - Polling intervals: experiments list page 4s while any experiment is `running`; experiment detail page 3s while that experiment is `running`; data storage page 2s while any job is `pending` or `running`
-- Config duplication is implemented via the URL query parameter `?from=[experimentId]` on the new experiment page; the form pre-fills all fields from the source experiment's config
+- Config duplication is implemented via the URL query parameter `?from=[experimentId]` on the new experiment page; a "Duplicate Config" button appears on both the experiment list card and the experiment detail page

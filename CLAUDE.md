@@ -25,8 +25,8 @@ A virtual prop trading firm simulator where AI agents design and evaluate tradin
 
 Use these in order:
 - `/speckit-constitution` — project principles (done ✅)
-- `/speckit-specify` — full system specification
-- `/speckit-clarify` — clarifying questions
+- `/speckit-specify` — full system specification (done ✅)
+- `/speckit-clarify` — clarifying questions (done ✅)
 - `/speckit-plan` — implementation plan
 - `/speckit-tasks` — task list
 - `/speckit-implement` — implementation
