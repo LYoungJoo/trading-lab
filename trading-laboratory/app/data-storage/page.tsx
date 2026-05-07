@@ -1,13 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface Dataset {
   symbol: string;
@@ -48,6 +41,44 @@ interface ValidationResult {
   startDate?: string;
   endDate?: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Shared styles
+// ─────────────────────────────────────────────────────────────
+
+const sectionLabel: React.CSSProperties = {
+  fontSize: 11, fontWeight: 600, color: '#7a7a7a',
+  letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16,
+};
+
+const fieldLabel: React.CSSProperties = {
+  display: 'block', fontSize: 13, fontWeight: 500, color: '#1d1d1f',
+  letterSpacing: '-0.224px', marginBottom: 6,
+};
+
+const inputBase: React.CSSProperties = {
+  width: '100%', border: '1px solid #e0e0e0', borderRadius: 11,
+  padding: '10px 14px', fontSize: 15, color: '#1d1d1f',
+  backgroundColor: '#ffffff', outline: 'none', boxSizing: 'border-box',
+  fontFamily: 'inherit',
+};
+
+function SelectWrap({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      {children}
+      <span style={{
+        position: 'absolute', right: 14, top: '50%',
+        transform: 'translateY(-50%)', pointerEvents: 'none',
+        color: '#7a7a7a', fontSize: 11,
+      }}>▾</span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
 
 export default function DataStoragePage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -112,10 +143,7 @@ export default function DataStoragePage() {
       await fetchJobs();
       if (mounted) await fetchDatasets();
     }, 2000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
+    return () => { mounted = false; clearInterval(interval); };
   }, [jobs, fetchJobs, fetchDatasets]);
 
   const currentProvider = providers.find((p) => p.id === selectedProvider);
@@ -141,10 +169,6 @@ export default function DataStoragePage() {
     }
   }
 
-  function handleSymbolBlur() {
-    handleValidate();
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validation?.valid) return;
@@ -158,7 +182,6 @@ export default function DataStoragePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to start download');
-      // Reset form
       setSymbol('');
       setValidation(null);
       setStartDate('');
@@ -171,12 +194,12 @@ export default function DataStoragePage() {
     }
   }
 
-  async function handleDelete(symbol: string, provider: string) {
+  async function handleDelete(sym: string, provider: string) {
     // eslint-disable-next-line no-alert
-    if (!window.confirm(`Delete all ${symbol} data from ${provider}?`)) return;
+    if (!window.confirm(`Delete all ${sym} data from ${provider}?`)) return;
     setDeleteError(null);
     try {
-      const res = await fetch(`/api/data-storage/datasets/${encodeURIComponent(symbol)}?provider=${provider}`, {
+      const res = await fetch(`/api/data-storage/datasets/${encodeURIComponent(sym)}?provider=${provider}`, {
         method: 'DELETE',
       });
       if (!res.ok) {
@@ -190,223 +213,284 @@ export default function DataStoragePage() {
   }
 
   const activeJobs = jobs.filter((j) => j.status === 'pending' || j.status === 'running');
+  const failedJobs = jobs.filter((j) => j.status === 'failed').slice(0, 3);
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Data Storage</h1>
-        <Link href="/">
-          <Button variant="outline" size="sm">← Experiments</Button>
-        </Link>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f7' }}>
+
+      {/* White header tile */}
+      <div style={{ backgroundColor: '#ffffff', padding: '48px 24px 40px', borderBottom: '1px solid #e0e0e0' }}>
+        <div style={{ maxWidth: 980, margin: '0 auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#7a7a7a', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+              Prop Trading Simulator
+            </p>
+            <h1 style={{ fontSize: 40, fontWeight: 600, lineHeight: 1.1, letterSpacing: 0, color: '#1d1d1f', margin: 0 }}>
+              Data Storage
+            </h1>
+          </div>
+        </div>
       </div>
 
-      {/* Active Downloads */}
-      {activeJobs.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Active Downloads</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {activeJobs.map((job) => (
-              <div key={job.id} className="space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{job.symbol} {job.timeframe}</span>
-                  <Badge variant={job.status === 'running' ? 'default' : 'secondary'}>
-                    {job.status}
-                  </Badge>
-                </div>
-                {job.totalRows != null && job.totalRows > 0 ? (
-                  <Progress value={((job.insertedRows ?? 0) / job.totalRows) * 100} className="h-1.5" />
-                ) : (
-                  <Progress value={0} className="h-1.5 animate-pulse" />
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {job.insertedRows != null ? `${job.insertedRows.toLocaleString()} rows inserted` : 'Starting...'}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      {/* Content — parchment */}
+      <div style={{ maxWidth: 980, margin: '0 auto', padding: '40px 24px 80px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Recent failed jobs */}
-      {jobs.filter(j => j.status === 'failed').slice(0, 3).map((job) => (
-        <div key={job.id} className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-3">
-          <strong>{job.symbol} {job.timeframe}</strong> download failed: {job.errorMessage}
-        </div>
-      ))}
-
-      {/* Delete error */}
-      {deleteError && (
-        <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-3">
-          Delete failed: {deleteError}
-        </div>
-      )}
-
-      {/* Downloaded Datasets */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Downloaded Datasets</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loadingDatasets ? (
-            <div className="text-sm text-muted-foreground">Loading...</div>
-          ) : datasets.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-4 text-center">
-              No datasets downloaded yet. Use the form below to get started.
+        {/* Active Downloads */}
+        {activeJobs.length > 0 && (
+          <div className="apple-card">
+            <p style={sectionLabel}>Active Downloads</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {activeJobs.map((job) => {
+                const percent = job.totalRows != null && job.totalRows > 0
+                  ? ((job.insertedRows ?? 0) / job.totalRows) * 100
+                  : 0;
+                return (
+                  <div key={job.id}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 15, fontWeight: 500, color: '#1d1d1f' }}>
+                        {job.symbol} <span style={{ color: '#7a7a7a', fontWeight: 400 }}>{job.timeframe}</span>
+                      </span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
+                        borderRadius: 9999, padding: '2px 8px', textTransform: 'capitalize',
+                        backgroundColor: job.status === 'running' ? '#e8f0fe' : '#fff8e1',
+                        color: job.status === 'running' ? '#1a56db' : '#b45309',
+                      }}>
+                        {job.status}
+                      </span>
+                    </div>
+                    <div style={{ height: 4, backgroundColor: '#f0f0f0', borderRadius: 9999, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', backgroundColor: '#0066cc', borderRadius: 9999,
+                        width: `${percent}%`, transition: 'width 0.4s ease',
+                        minWidth: percent > 0 ? 4 : 0,
+                      }} />
+                    </div>
+                    <p style={{ fontSize: 12, color: '#7a7a7a', marginTop: 4 }}>
+                      {job.insertedRows != null ? `${job.insertedRows.toLocaleString()} rows inserted` : 'Starting…'}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="text-left py-2 pr-4">Symbol</th>
-                  <th className="text-left py-2 pr-4">Provider</th>
-                  <th className="text-left py-2 pr-4">Timeframe</th>
-                  <th className="text-right py-2 pr-4">Rows</th>
-                  <th className="text-left py-2 pr-4">Date Range</th>
-                  <th className="text-right py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {datasets.map((d) => (
-                  <tr key={`${d.symbol}-${d.provider}-${d.timeframe}`} className="border-b last:border-0">
-                    <td className="py-2 pr-4 font-medium">{d.symbol}</td>
-                    <td className="py-2 pr-4 text-muted-foreground capitalize">{d.provider}</td>
-                    <td className="py-2 pr-4">
-                      <Badge variant="outline">{d.timeframe}</Badge>
-                    </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">{d.rowCount.toLocaleString()}</td>
-                    <td className="py-2 pr-4 text-muted-foreground text-xs">{d.minDate} → {d.maxDate}</td>
-                    <td className="py-2 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(d.symbol, d.provider)}
-                      >
-                        Delete
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
 
-      {/* New Download Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">New Download</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Provider</label>
-                <Select value={selectedProvider} onValueChange={(v: string | null) => { if (v) { setSelectedProvider(v); setSymbol(''); setValidation(null); } }}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providers.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+        {/* Failed job notices */}
+        {failedJobs.map((job) => (
+          <div key={job.id} style={{
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: 11, padding: '12px 16px', fontSize: 14, color: '#b91c1c',
+          }}>
+            <strong>{job.symbol} {job.timeframe}</strong> download failed: {job.errorMessage}
+          </div>
+        ))}
+
+        {/* Delete error */}
+        {deleteError && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: 11, padding: '12px 16px', fontSize: 14, color: '#b91c1c',
+          }}>
+            Delete failed: {deleteError}
+          </div>
+        )}
+
+        {/* Downloaded Datasets */}
+        <div className="apple-card">
+          <p style={sectionLabel}>Downloaded Datasets</p>
+          {loadingDatasets ? (
+            <p style={{ fontSize: 14, color: '#7a7a7a' }}>Loading...</p>
+          ) : datasets.length === 0 ? (
+            <p style={{ fontSize: 14, color: '#7a7a7a', textAlign: 'center', padding: '24px 0' }}>
+              No datasets downloaded yet. Use the form below to get started.
+            </p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
+                    {['Symbol', 'Provider', 'Timeframe', 'Rows', 'Date Range', ''].map((h) => (
+                      <th key={h} style={{
+                        textAlign: h === 'Rows' ? 'right' : h === '' ? 'right' : 'left',
+                        padding: '8px 12px 8px 0', fontSize: 11, fontWeight: 600,
+                        color: '#7a7a7a', letterSpacing: '0.05em', textTransform: 'uppercase',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {h}
+                      </th>
                     ))}
-                    {providers.length === 0 && (
-                      <SelectItem value="yahoo">Yahoo Finance</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                  </tr>
+                </thead>
+                <tbody>
+                  {datasets.map((d) => (
+                    <tr key={`${d.symbol}-${d.provider}-${d.timeframe}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                      <td style={{ padding: '12px 12px 12px 0', fontWeight: 500, color: '#1d1d1f' }}>{d.symbol}</td>
+                      <td style={{ padding: '12px 12px 12px 0', color: '#7a7a7a', textTransform: 'capitalize' }}>{d.provider}</td>
+                      <td style={{ padding: '12px 12px 12px 0' }}>
+                        <span style={{
+                          backgroundColor: '#f5f5f7', color: '#333333', border: '1px solid #e0e0e0',
+                          borderRadius: 9999, padding: '2px 8px', fontSize: 12,
+                        }}>
+                          {d.timeframe}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 12px 12px 0', textAlign: 'right', color: '#1d1d1f', fontVariantNumeric: 'tabular-nums' }}>
+                        {d.rowCount.toLocaleString()}
+                      </td>
+                      <td style={{ padding: '12px 12px 12px 0', color: '#7a7a7a', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {d.minDate} → {d.maxDate}
+                      </td>
+                      <td style={{ padding: '12px 0', textAlign: 'right' }}>
+                        <button
+                          onClick={() => handleDelete(d.symbol, d.provider)}
+                          style={{
+                            fontSize: 13, color: '#b91c1c', background: 'none', border: 'none',
+                            cursor: 'pointer', padding: '4px 8px', borderRadius: 8, fontFamily: 'inherit',
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* New Download Form */}
+        <div className="apple-card">
+          <p style={sectionLabel}>New Download</p>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={fieldLabel}>Provider</label>
+                <SelectWrap>
+                  <select
+                    value={selectedProvider}
+                    onChange={(e) => {
+                      setSelectedProvider(e.target.value);
+                      setSymbol('');
+                      setValidation(null);
+                    }}
+                    style={{ ...inputBase, paddingRight: 36, cursor: 'pointer' } as React.CSSProperties}
+                  >
+                    {providers.length > 0
+                      ? providers.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))
+                      : <option value="yahoo">Yahoo Finance</option>
+                    }
+                  </select>
+                </SelectWrap>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Timeframe</label>
-                <Select value={timeframe} onValueChange={(v: string | null) => { if (v) { setTimeframe(v); setValidation(null); } }}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
+              <div>
+                <label style={fieldLabel}>Timeframe</label>
+                <SelectWrap>
+                  <select
+                    value={timeframe}
+                    onChange={(e) => { setTimeframe(e.target.value); setValidation(null); }}
+                    style={{ ...inputBase, paddingRight: 36, cursor: 'pointer' } as React.CSSProperties}
+                  >
                     {(currentProvider?.supportedTimeframes ?? ['1m', '5m', '1h', '1d', '1w']).map((tf) => (
-                      <SelectItem key={tf} value={tf}>{tf}</SelectItem>
+                      <option key={tf} value={tf}>{tf}</option>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </select>
+                </SelectWrap>
                 {currentProvider?.timeframeNotes?.[timeframe] && (
-                  <p className="text-xs text-muted-foreground">
+                  <p style={{ fontSize: 12, color: '#7a7a7a', marginTop: 4 }}>
                     {currentProvider.timeframeNotes[timeframe]}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Symbol</label>
-              <Input
-                placeholder={
-                  selectedProvider === 'binance'
-                    ? 'e.g. BTCUSDT, ETHUSDT, BNBUSDT'
-                    : 'e.g. MNQ=F, ES=F, BTC-USD, AAPL'
-                }
+            <div>
+              <label style={fieldLabel}>Symbol</label>
+              <input
                 value={symbol}
                 onChange={(e) => { setSymbol(e.target.value); setValidation(null); }}
-                onBlur={handleSymbolBlur}
+                onBlur={() => handleValidate()}
+                placeholder={
+                  selectedProvider === 'binance'
+                    ? 'e.g. BTCUSDT, ETHUSDT'
+                    : 'e.g. MNQ=F, ES=F, BTC-USD, AAPL'
+                }
+                style={inputBase}
               />
               {validating && (
-                <p className="text-xs text-muted-foreground">Checking symbol...</p>
+                <p style={{ fontSize: 12, color: '#7a7a7a', marginTop: 4 }}>Checking symbol...</p>
               )}
-              <div className="text-xs text-muted-foreground">
+              <div style={{ fontSize: 12, color: '#7a7a7a', marginTop: 6 }}>
                 {selectedProvider === 'binance' ? (
-                  <p>Format: <code className="bg-muted px-1 rounded">BTCUSDT</code>, <code className="bg-muted px-1 rounded">ETHUSDT</code>, <code className="bg-muted px-1 rounded">BNBUSDT</code>, <code className="bg-muted px-1 rounded">SOLUSDT</code> (no hyphen, uppercase)</p>
+                  <p>Format: <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>BTCUSDT</code>, <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>ETHUSDT</code> (uppercase, no hyphen)</p>
                 ) : selectedProvider === 'yahoo' ? (
-                  <div className="space-y-0.5">
-                    <p><span className="font-medium">Futures</span> — append <code className="bg-muted px-1 rounded">=F</code> for CME futures: <code className="bg-muted px-1 rounded">MNQ=F</code> (Micro Nasdaq), <code className="bg-muted px-1 rounded">ES=F</code> (E-mini S&P), <code className="bg-muted px-1 rounded">NQ=F</code> (Nasdaq 100), <code className="bg-muted px-1 rounded">CL=F</code> (Crude Oil)</p>
-                    <p><span className="font-medium">Crypto</span> — use <code className="bg-muted px-1 rounded">BTC-USD</code>, <code className="bg-muted px-1 rounded">ETH-USD</code> format</p>
-                    <p><span className="font-medium">Stocks</span> — plain ticker: <code className="bg-muted px-1 rounded">AAPL</code>, <code className="bg-muted px-1 rounded">SPY</code>, <code className="bg-muted px-1 rounded">QQQ</code></p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <p><strong>Futures</strong> — append <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>=F</code>: <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>MNQ=F</code>, <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>ES=F</code></p>
+                    <p><strong>Crypto</strong> — <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>BTC-USD</code>, <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>ETH-USD</code></p>
+                    <p><strong>Stocks</strong> — <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>AAPL</code>, <code style={{ backgroundColor: '#f5f5f7', padding: '1px 5px', borderRadius: 4 }}>SPY</code></p>
                   </div>
                 ) : null}
               </div>
               {validation && (
-                <p className={`text-xs ${validation.valid ? 'text-green-600' : 'text-destructive'}`}>
-                  {validation.valid ? `✓ Valid — available range: ${validation.startDate} to ${validation.endDate}` : `✗ ${validation.error}`}
+                <p style={{ fontSize: 12, marginTop: 6, color: validation.valid ? '#059669' : '#b91c1c' }}>
+                  {validation.valid
+                    ? `✓ Valid — available range: ${validation.startDate} to ${validation.endDate}`
+                    : `✗ ${validation.error}`}
                 </p>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Start Date</label>
-                <Input
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={fieldLabel}>Start Date</label>
+                <input
                   type="date"
                   value={startDate}
                   min={validation?.startDate}
                   max={validation?.endDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   disabled={!validation?.valid}
+                  style={{ ...inputBase, opacity: !validation?.valid ? 0.5 : 1 }}
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">End Date</label>
-                <Input
+              <div>
+                <label style={fieldLabel}>End Date</label>
+                <input
                   type="date"
                   value={endDate}
                   min={validation?.startDate}
                   max={validation?.endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   disabled={!validation?.valid}
+                  style={{ ...inputBase, opacity: !validation?.valid ? 0.5 : 1 }}
                 />
               </div>
             </div>
 
             {submitError && (
-              <p className="text-xs text-destructive">{submitError}</p>
+              <p style={{ fontSize: 13, color: '#b91c1c' }}>{submitError}</p>
             )}
 
-            <Button type="submit" disabled={submitting || !validation?.valid || !startDate || !endDate}>
-              {submitting ? 'Starting...' : 'Start Download'}
-            </Button>
+            <button
+              type="submit"
+              disabled={submitting || !validation?.valid || !startDate || !endDate}
+              className="apple-btn-primary"
+              style={{
+                alignSelf: 'flex-start',
+                opacity: (submitting || !validation?.valid || !startDate || !endDate) ? 0.6 : 1,
+                cursor: (submitting || !validation?.valid || !startDate || !endDate) ? 'default' : 'pointer',
+              }}
+            >
+              {submitting ? 'Starting…' : 'Start Download'}
+            </button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+
+      </div>
     </div>
   );
 }

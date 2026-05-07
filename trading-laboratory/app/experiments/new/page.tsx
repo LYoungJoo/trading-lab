@@ -23,7 +23,6 @@ function NewExperimentContent() {
   const [prefillLoading, setPrefillLoading] = useState(!!fromId);
   const [prefillError, setPrefillError] = useState<string | null>(null);
 
-  // If ?from= is present, fetch that experiment and pre-fill the form
   useEffect(() => {
     if (!fromId) return;
     let mounted = true;
@@ -38,17 +37,9 @@ function NewExperimentContent() {
         }
         const data = (await res.json()) as Experiment;
         if (!mounted) return;
-        // Pre-fill with source config but clear the name (let user pick a new name)
-        setDefaultValues({
-          ...data.config,
-          name: '',
-        });
+        setDefaultValues({ ...data.config, name: '' });
       } catch (e) {
-        if (mounted) {
-          setPrefillError(
-            e instanceof Error ? e.message : 'Failed to load source experiment'
-          );
-        }
+        if (mounted) setPrefillError(e instanceof Error ? e.message : 'Failed to load source experiment');
       } finally {
         if (mounted) setPrefillLoading(false);
       }
@@ -63,50 +54,58 @@ function NewExperimentContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Back to experiments
+    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f7' }}>
+      {/* White header tile */}
+      <div style={{ backgroundColor: '#ffffff', padding: '48px 24px 40px', borderBottom: '1px solid #e0e0e0' }}>
+        <div style={{ maxWidth: 680, margin: '0 auto' }}>
+          <Link href="/" style={{ fontSize: 14, color: '#7a7a7a', textDecoration: 'none', letterSpacing: '-0.224px' }}>
+            ← Experiments
           </Link>
-          <h1 className="text-2xl font-bold mt-3">
+          <h1 style={{
+            fontSize: 34, fontWeight: 600, lineHeight: 1.47,
+            letterSpacing: '-0.374px', color: '#1d1d1f', marginTop: 16, marginBottom: 8,
+          }}>
             {fromId ? 'Duplicate Experiment' : 'New Experiment'}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p style={{ fontSize: 15, color: '#7a7a7a', letterSpacing: '-0.224px', margin: 0 }}>
             {fromId
               ? 'Config pre-filled from an existing experiment. Adjust as needed and run.'
               : 'Configure your market parameters and run the strategy agent.'}
           </p>
         </div>
+      </div>
 
-        {/* Prefill loading */}
-        {prefillLoading && (
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center space-y-2">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground mx-auto" />
-              <p className="text-muted-foreground text-sm">Loading config...</p>
+      {/* Parchment content */}
+      <div style={{ padding: '40px 24px 80px' }}>
+        <div style={{ maxWidth: 680, margin: '0 auto' }}>
+
+          {prefillLoading && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 0' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  border: '2px solid #e0e0e0', borderTopColor: '#1d1d1f',
+                  animation: 'spin 0.8s linear infinite', margin: '0 auto 12px',
+                }} />
+                <p style={{ fontSize: 14, color: '#7a7a7a' }}>Loading config...</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Prefill error */}
-        {prefillError && (
-          <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-300 mb-6">
-            {prefillError} — starting with default config.
-          </div>
-        )}
+          {prefillError && (
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fecaca',
+              borderRadius: 11, padding: '12px 16px', color: '#b91c1c',
+              fontSize: 14, marginBottom: 20,
+            }}>
+              {prefillError} — starting with default config.
+            </div>
+          )}
 
-        {/* Form — show once prefill is done (or if no fromId) */}
-        {!prefillLoading && (
-          <ExperimentForm
-            onSuccess={handleSuccess}
-            defaultValues={defaultValues}
-          />
-        )}
+          {!prefillLoading && (
+            <ExperimentForm onSuccess={handleSuccess} defaultValues={defaultValues} />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -120,10 +119,14 @@ export default function NewExperimentPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center space-y-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground mx-auto" />
-            <p className="text-muted-foreground text-sm">Loading...</p>
+        <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              border: '2px solid #e0e0e0', borderTopColor: '#1d1d1f',
+              animation: 'spin 0.8s linear infinite', margin: '0 auto 12px',
+            }} />
+            <p style={{ fontSize: 14, color: '#7a7a7a' }}>Loading...</p>
           </div>
         </div>
       }

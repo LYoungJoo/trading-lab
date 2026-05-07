@@ -3,10 +3,6 @@
 // T019 — ExperimentForm component
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import type {
   Market,
   DataSource,
@@ -37,9 +33,9 @@ const MARKET_OPTIONS: { label: string; value: Market; dataSource: DataSource }[]
 ];
 
 const TIMEFRAME_OPTIONS: { label: string; value: Timeframe }[] = [
-  { label: '1 Minute', value: '1m' },
-  { label: '5 Minutes', value: '5m' },
-  { label: '1 Hour', value: '1h' },
+  { label: '1 min', value: '1m' },
+  { label: '5 min', value: '5m' },
+  { label: '1 hour', value: '1h' },
   { label: 'Daily', value: 'day' },
   { label: 'Weekly', value: 'week' },
 ];
@@ -54,31 +50,11 @@ const INDICATOR_OPTIONS: { label: string; value: Indicator }[] = [
 ];
 
 const PROP_FIRM_RULE_OPTIONS: { label: string; value: PropFirmRuleName; description: string }[] = [
-  {
-    label: 'Daily Loss Limit',
-    value: 'Daily Loss Limit',
-    description: 'Cannot lose more than X% of account in a single trading day',
-  },
-  {
-    label: 'Max Loss',
-    value: 'Max Loss',
-    description: 'Overall maximum drawdown from peak equity',
-  },
-  {
-    label: 'Profit Target',
-    value: 'Profit Target',
-    description: 'Must reach X% profit target to pass evaluation',
-  },
-  {
-    label: 'Time Limit',
-    value: 'Time Limit',
-    description: 'Must complete evaluation within a specified number of trading days',
-  },
-  {
-    label: 'Consistency',
-    value: 'Consistency',
-    description: 'No single day profit can exceed X% of total profit (consistency rule)',
-  },
+  { label: 'Daily Loss Limit', value: 'Daily Loss Limit', description: 'Cannot lose more than X% of account in a single trading day' },
+  { label: 'Max Loss', value: 'Max Loss', description: 'Overall maximum drawdown from peak equity' },
+  { label: 'Profit Target', value: 'Profit Target', description: 'Must reach X% profit target to pass evaluation' },
+  { label: 'Time Limit', value: 'Time Limit', description: 'Must complete evaluation within a specified number of trading days' },
+  { label: 'Consistency', value: 'Consistency', description: 'No single day profit can exceed X% of total profit (consistency rule)' },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -100,6 +76,40 @@ interface FormState {
   timeframes: Timeframe[];
   indicators: Indicator[];
   propFirmRules: Record<PropFirmRuleName, boolean>;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Shared styles
+// ─────────────────────────────────────────────────────────────
+
+const sectionLabel: React.CSSProperties = {
+  fontSize: 11, fontWeight: 600, color: '#7a7a7a',
+  letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16,
+};
+
+const fieldLabel: React.CSSProperties = {
+  display: 'block', fontSize: 13, fontWeight: 500, color: '#1d1d1f',
+  letterSpacing: '-0.224px', marginBottom: 6,
+};
+
+const inputBase: React.CSSProperties = {
+  width: '100%', border: '1px solid #e0e0e0', borderRadius: 11,
+  padding: '10px 14px', fontSize: 15, color: '#1d1d1f',
+  backgroundColor: '#ffffff', outline: 'none', boxSizing: 'border-box',
+  fontFamily: 'inherit',
+};
+
+function SelectWrap({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      {children}
+      <span style={{
+        position: 'absolute', right: 14, top: '50%',
+        transform: 'translateY(-50%)', pointerEvents: 'none',
+        color: '#7a7a7a', fontSize: 11,
+      }}>▾</span>
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -140,7 +150,6 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
       .then((data) => {
         if (!mounted) return;
         setAvailableDatasets(data);
-        // Auto-select the first downloaded symbol if none is pre-selected via defaultValues
         if (data.length > 0 && !defaultValues?.symbol) {
           const firstSymbol = data[0].symbol;
           const datasets = data.filter((d) => d.symbol === firstSymbol);
@@ -158,7 +167,6 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
   const downloadedSymbols = Array.from(new Set(availableDatasets.map((d) => d.symbol)));
   const hasDownloadedData = downloadedSymbols.length > 0;
 
-  // Pre-compute date range and available timeframes for the currently selected symbol
   const selectedSymbolDatasets = availableDatasets.filter((d) => d.symbol === form.symbol);
   const selectedSymbolRange =
     selectedSymbolDatasets.length > 0
@@ -168,13 +176,8 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
         }
       : null;
 
-  // Timeframes available in downloaded data for the selected symbol (mapped to internal Timeframe labels)
   const dbToInternalTimeframe: Record<string, Timeframe> = {
-    '1m': '1m',
-    '5m': '5m',
-    '1h': '1h',
-    '1d': 'day',
-    '1w': 'week',
+    '1m': '1m', '5m': '5m', '1h': '1h', '1d': 'day', '1w': 'week',
   };
   const availableTimeframesForSymbol: Set<Timeframe> = new Set(
     selectedSymbolDatasets
@@ -187,78 +190,50 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
     if (datasets.length === 0) return;
     const minDate = datasets.reduce((m, d) => (d.minDate < m ? d.minDate : m), datasets[0].minDate);
     const maxDate = datasets.reduce((m, d) => (d.maxDate > m ? d.maxDate : m), datasets[0].maxDate);
-
-    // Map provider → dataSource
     const provider = datasets[0].provider;
     const dataSource: DataSource = provider === 'binance' ? 'binance' : 'binance';
-
-    // Filter timeframes to only those available for the new symbol
     const newAvailableTfs: Set<Timeframe> = new Set(
-      datasets
-        .map((d) => dbToInternalTimeframe[d.timeframe])
-        .filter((tf): tf is Timeframe => tf !== undefined)
+      datasets.map((d) => dbToInternalTimeframe[d.timeframe]).filter((tf): tf is Timeframe => tf !== undefined)
     );
-
     setForm((f) => ({
-      ...f,
-      symbol: sym,
-      startDate: minDate,
-      endDate: maxDate,
-      dataSource,
+      ...f, symbol: sym, startDate: minDate, endDate: maxDate, dataSource,
       timeframes: f.timeframes.filter((tf) => newAvailableTfs.has(tf)),
     }));
   }
 
-  // ─── Handlers ──────────────────────────────────────────────
-
   function handleMarketChange(market: Market) {
     const option = MARKET_OPTIONS.find((o) => o.value === market);
     const defaultSymbols: Record<Market, string> = {
-      crypto: 'BTCUSDT',
-      'us-futures': 'ES',
-      'kr-futures': '101C6000',
+      crypto: 'BTCUSDT', 'us-futures': 'ES', 'kr-futures': '101C6000',
     };
     setForm((f) => ({
-      ...f,
-      market,
-      dataSource: option?.dataSource ?? 'binance',
-      symbol: defaultSymbols[market],
+      ...f, market, dataSource: option?.dataSource ?? 'binance', symbol: defaultSymbols[market],
     }));
   }
 
   function toggleTimeframe(tf: Timeframe) {
     setForm((f) => ({
       ...f,
-      timeframes: f.timeframes.includes(tf)
-        ? f.timeframes.filter((t) => t !== tf)
-        : [...f.timeframes, tf],
+      timeframes: f.timeframes.includes(tf) ? f.timeframes.filter((t) => t !== tf) : [...f.timeframes, tf],
     }));
   }
 
   function toggleIndicator(ind: Indicator) {
     setForm((f) => ({
       ...f,
-      indicators: f.indicators.includes(ind)
-        ? f.indicators.filter((i) => i !== ind)
-        : [...f.indicators, ind],
+      indicators: f.indicators.includes(ind) ? f.indicators.filter((i) => i !== ind) : [...f.indicators, ind],
     }));
   }
 
   function togglePropRule(rule: PropFirmRuleName) {
     setForm((f) => ({
       ...f,
-      propFirmRules: {
-        ...f.propFirmRules,
-        [rule]: !f.propFirmRules[rule],
-      },
+      propFirmRules: { ...f.propFirmRules, [rule]: !f.propFirmRules[rule] },
     }));
   }
 
-  // ─── Validation ────────────────────────────────────────────
-
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
-
     if (!form.name.trim()) newErrors.name = 'Experiment name is required';
     if (!form.symbol.trim()) newErrors.symbol = 'Symbol is required';
     if (!form.startDate) newErrors.startDate = 'Start date is required';
@@ -266,15 +241,10 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
     if (form.startDate && form.endDate && form.startDate >= form.endDate) {
       newErrors.endDate = 'End date must be after start date';
     }
-    if (form.timeframes.length === 0) {
-      newErrors.timeframes = 'Select at least one timeframe';
-    }
-
+    if (form.timeframes.length === 0) newErrors.timeframes = 'Select at least one timeframe';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
-
-  // ─── Submit ────────────────────────────────────────────────
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -287,20 +257,15 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
       dateRange: { start: form.startDate, end: form.endDate },
       timeframes: form.timeframes,
       indicators: form.indicators,
-      propFirmRules: PROP_FIRM_RULE_OPTIONS.map(
-        (r): PropFirmRule => ({
-          name: r.value,
-          enabled: form.propFirmRules[r.value],
-          description: r.description,
-        })
-      ),
+      propFirmRules: PROP_FIRM_RULE_OPTIONS.map((r): PropFirmRule => ({
+        name: r.value, enabled: form.propFirmRules[r.value], description: r.description,
+      })),
     };
 
     setIsLoading(true);
     setLoadingStep('Creating experiment...');
 
     try {
-      // Step 1: Create experiment
       const createRes = await fetch('/api/experiments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -312,24 +277,18 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
         try {
           const err = (await createRes.json()) as { error?: string };
           if (err.error) errMsg = err.error;
-        } catch {
-          // ignore parse error
-        }
+        } catch { /* ignore */ }
         throw new Error(errMsg);
       }
 
       const created = (await createRes.json()) as { id: string };
       const experimentId = created.id;
 
-      // Step 2+3: Fetch market data and run strategy agent (single server call)
       setLoadingStep('Running strategy agent (fetching data + generating strategy)...');
 
-      const runRes = await fetch(`/api/experiments/${experimentId}/run`, {
-        method: 'POST',
-      });
+      const runRes = await fetch(`/api/experiments/${experimentId}/run`, { method: 'POST' });
 
       if (!runRes.ok) {
-        // Redirect to experiment detail so user can see execution log for the failure
         onSuccess(experimentId);
         return;
       }
@@ -347,256 +306,255 @@ export function ExperimentForm({ onSuccess, defaultValues }: ExperimentFormProps
   // ─── Render ────────────────────────────────────────────────
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Experiment Name */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Experiment Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="exp-name">
-              Experiment Name <span className="text-red-500">*</span>
-            </label>
-            <Input
-              id="exp-name"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. BTC Bull Run Q1 2024"
-              disabled={isLoading}
-            />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-          </div>
-        </CardContent>
-      </Card>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-      {/* Market & Symbol */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Market Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="market">
-              Market
-            </label>
+      {/* Experiment Details */}
+      <div className="apple-card">
+        <p style={sectionLabel}>Experiment Details</p>
+        <label style={fieldLabel} htmlFor="exp-name">
+          Experiment Name <span style={{ color: '#b91c1c' }}>*</span>
+        </label>
+        <input
+          id="exp-name"
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          placeholder="e.g. BTC Bull Run Q1 2024"
+          disabled={isLoading}
+          style={{ ...inputBase, opacity: isLoading ? 0.6 : 1 }}
+        />
+        {errors.name && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.name}</p>}
+      </div>
+
+      {/* Market Configuration */}
+      <div className="apple-card">
+        <p style={sectionLabel}>Market Configuration</p>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={fieldLabel} htmlFor="market">Market</label>
+          <SelectWrap>
             <select
               id="market"
               value={form.market}
               onChange={(e) => handleMarketChange(e.target.value as Market)}
               disabled={isLoading}
-              className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+              style={{ ...inputBase, paddingRight: 36, cursor: 'pointer', opacity: isLoading ? 0.6 : 1 } as React.CSSProperties}
             >
               {MARKET_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-          </div>
+          </SelectWrap>
+        </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium" htmlFor="symbol">
-                Symbol <span className="text-red-500">*</span>
-              </label>
-              {hasDownloadedData && (
-                <Badge variant="secondary" className="text-xs">Using downloaded data</Badge>
-              )}
-            </div>
-            {hasDownloadedData ? (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <label style={{ ...fieldLabel, marginBottom: 0 }} htmlFor="symbol">
+              Symbol <span style={{ color: '#b91c1c' }}>*</span>
+            </label>
+            {hasDownloadedData && (
+              <span style={{
+                fontSize: 11, fontWeight: 600, color: '#065f46', backgroundColor: '#ecfdf5',
+                borderRadius: 9999, padding: '2px 8px', letterSpacing: '0.04em',
+              }}>
+                Downloaded data
+              </span>
+            )}
+          </div>
+          {hasDownloadedData ? (
+            <SelectWrap>
               <select
                 id="symbol"
                 value={form.symbol}
-                onChange={(e) => {
-                  if (e.target.value) handleDownloadedSymbolChange(e.target.value);
-                }}
+                onChange={(e) => { if (e.target.value) handleDownloadedSymbolChange(e.target.value); }}
                 disabled={isLoading}
-                className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+                style={{ ...inputBase, paddingRight: 36, cursor: 'pointer', opacity: isLoading ? 0.6 : 1 } as React.CSSProperties}
               >
                 {downloadedSymbols.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
-            ) : (
-              <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-                No data downloaded yet.{' '}
-                <Link href="/data-storage" className="underline font-medium hover:opacity-80">
-                  Go to Data Storage
-                </Link>{' '}
-                to download market data first.
-              </div>
-            )}
-            {errors.symbol && <p className="text-red-500 text-xs mt-1">{errors.symbol}</p>}
-          </div>
-
-          {selectedSymbolRange && (
-            <p className="text-xs text-muted-foreground">
-              Date range locked to downloaded data: {selectedSymbolRange.minDate} → {selectedSymbolRange.maxDate}
-            </p>
+            </SelectWrap>
+          ) : (
+            <div style={{
+              border: '1px solid #fde68a', backgroundColor: '#fff8e1',
+              borderRadius: 11, padding: '12px 16px', fontSize: 14, color: '#92400e',
+            }}>
+              No data downloaded yet.{' '}
+              <Link href="/data-storage" style={{ color: '#0066cc', textDecoration: 'none', fontWeight: 500 }}>
+                Go to Data Storage
+              </Link>{' '}
+              to download market data first.
+            </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="start-date">
-                Start Date <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="start-date"
-                type="date"
-                value={form.startDate}
-                min={selectedSymbolRange?.minDate}
-                max={selectedSymbolRange?.maxDate}
-                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                disabled={isLoading || hasDownloadedData}
-              />
-              {errors.startDate && (
-                <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="end-date">
-                End Date <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="end-date"
-                type="date"
-                value={form.endDate}
-                min={selectedSymbolRange?.minDate}
-                max={selectedSymbolRange?.maxDate}
-                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                disabled={isLoading || hasDownloadedData}
-              />
-              {errors.endDate && (
-                <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>
-              )}
-            </div>
+          {errors.symbol && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.symbol}</p>}
+        </div>
+
+        {selectedSymbolRange && (
+          <p style={{ fontSize: 12, color: '#7a7a7a', marginBottom: 16 }}>
+            Date range locked to downloaded data: {selectedSymbolRange.minDate} → {selectedSymbolRange.maxDate}
+          </p>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={fieldLabel} htmlFor="start-date">
+              Start Date <span style={{ color: '#b91c1c' }}>*</span>
+            </label>
+            <input
+              id="start-date"
+              type="date"
+              value={form.startDate}
+              min={selectedSymbolRange?.minDate}
+              max={selectedSymbolRange?.maxDate}
+              onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+              disabled={isLoading || hasDownloadedData}
+              style={{ ...inputBase, opacity: (isLoading || hasDownloadedData) ? 0.6 : 1 }}
+            />
+            {errors.startDate && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.startDate}</p>}
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <label style={fieldLabel} htmlFor="end-date">
+              End Date <span style={{ color: '#b91c1c' }}>*</span>
+            </label>
+            <input
+              id="end-date"
+              type="date"
+              value={form.endDate}
+              min={selectedSymbolRange?.minDate}
+              max={selectedSymbolRange?.maxDate}
+              onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+              disabled={isLoading || hasDownloadedData}
+              style={{ ...inputBase, opacity: (isLoading || hasDownloadedData) ? 0.6 : 1 }}
+            />
+            {errors.endDate && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>{errors.endDate}</p>}
+          </div>
+        </div>
+      </div>
 
       {/* Timeframes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Timeframes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {TIMEFRAME_OPTIONS.filter((tf) =>
-              !hasDownloadedData || availableTimeframesForSymbol.size === 0 || availableTimeframesForSymbol.has(tf.value)
-            ).map((tf) => (
-              <label
+      <div className="apple-card">
+        <p style={sectionLabel}>Timeframes</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {TIMEFRAME_OPTIONS.filter((tf) =>
+            !hasDownloadedData || availableTimeframesForSymbol.size === 0 || availableTimeframesForSymbol.has(tf.value)
+          ).map((tf) => {
+            const selected = form.timeframes.includes(tf.value);
+            return (
+              <button
                 key={tf.value}
-                className="flex items-center gap-2 cursor-pointer"
+                type="button"
+                onClick={() => toggleTimeframe(tf.value)}
+                disabled={isLoading}
+                style={{
+                  border: selected ? '1.5px solid #0066cc' : '1px solid #e0e0e0',
+                  backgroundColor: selected ? '#e8f2ff' : '#ffffff',
+                  color: selected ? '#0066cc' : '#333333',
+                  borderRadius: 9999, padding: '7px 18px', fontSize: 14, fontWeight: 400,
+                  cursor: isLoading ? 'default' : 'pointer', opacity: isLoading ? 0.6 : 1,
+                  fontFamily: 'inherit',
+                }}
               >
-                <input
-                  type="checkbox"
-                  checked={form.timeframes.includes(tf.value)}
-                  onChange={() => toggleTimeframe(tf.value)}
-                  disabled={isLoading}
-                  className="rounded"
-                />
-                <span className="text-sm">{tf.label}</span>
-              </label>
-            ))}
-          </div>
-          {errors.timeframes && (
-            <p className="text-red-500 text-xs mt-2">{errors.timeframes}</p>
-          )}
-        </CardContent>
-      </Card>
+                {tf.label}
+              </button>
+            );
+          })}
+        </div>
+        {errors.timeframes && <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 8 }}>{errors.timeframes}</p>}
+      </div>
 
       {/* Indicators */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Indicators</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {INDICATOR_OPTIONS.map((ind) => (
-              <label
+      <div className="apple-card">
+        <p style={sectionLabel}>Indicators</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+          {INDICATOR_OPTIONS.map((ind) => {
+            const selected = form.indicators.includes(ind.value);
+            return (
+              <button
                 key={ind.value}
-                className={`flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer transition-colors ${
-                  form.indicators.includes(ind.value)
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                    : 'border-input'
-                }`}
+                type="button"
+                onClick={() => toggleIndicator(ind.value)}
+                disabled={isLoading}
+                style={{
+                  border: selected ? '1.5px solid #0066cc' : '1px solid #e0e0e0',
+                  backgroundColor: selected ? '#e8f2ff' : '#ffffff',
+                  color: selected ? '#0066cc' : '#333333',
+                  borderRadius: 9999, padding: '8px 16px', fontSize: 14, fontWeight: 400,
+                  cursor: isLoading ? 'default' : 'pointer', opacity: isLoading ? 0.6 : 1,
+                  textAlign: 'center', fontFamily: 'inherit',
+                }}
               >
-                <input
-                  type="checkbox"
-                  checked={form.indicators.includes(ind.value)}
-                  onChange={() => toggleIndicator(ind.value)}
-                  disabled={isLoading}
-                  className="sr-only"
-                />
-                <span className="text-sm font-medium">{ind.label}</span>
-              </label>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                {ind.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Prop Firm Rules */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Prop Firm Rules</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {PROP_FIRM_RULE_OPTIONS.map((rule) => (
-              <label
+      <div className="apple-card">
+        <p style={sectionLabel}>Prop Firm Rules</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {PROP_FIRM_RULE_OPTIONS.map((rule) => {
+            const selected = form.propFirmRules[rule.value];
+            return (
+              <button
                 key={rule.value}
-                className={`flex items-start gap-3 border rounded-md px-3 py-3 cursor-pointer transition-colors ${
-                  form.propFirmRules[rule.value]
-                    ? 'border-green-500 bg-green-50 dark:bg-green-950'
-                    : 'border-input'
-                }`}
+                type="button"
+                onClick={() => togglePropRule(rule.value)}
+                disabled={isLoading}
+                style={{
+                  border: selected ? '1.5px solid #059669' : '1px solid #e0e0e0',
+                  backgroundColor: selected ? '#ecfdf5' : '#ffffff',
+                  borderRadius: 11, padding: '12px 16px',
+                  cursor: isLoading ? 'default' : 'pointer',
+                  textAlign: 'left', opacity: isLoading ? 0.6 : 1,
+                  fontFamily: 'inherit',
+                }}
               >
-                <input
-                  type="checkbox"
-                  checked={form.propFirmRules[rule.value]}
-                  onChange={() => togglePropRule(rule.value)}
-                  disabled={isLoading}
-                  className="mt-0.5 rounded"
-                />
-                <div>
-                  <p className="text-sm font-medium">{rule.label}</p>
-                  <p className="text-xs text-muted-foreground">{rule.description}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                <p style={{ fontSize: 14, fontWeight: 500, color: selected ? '#065f46' : '#1d1d1f', margin: '0 0 2px' }}>
+                  {rule.label}
+                </p>
+                <p style={{ fontSize: 12, color: '#7a7a7a', margin: 0 }}>
+                  {rule.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      {/* Submit */}
+      {/* Submit error */}
       {errors.submit && (
-        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-300">
+        <div style={{
+          background: '#fef2f2', border: '1px solid #fecaca',
+          borderRadius: 11, padding: '12px 16px', color: '#b91c1c', fontSize: 14,
+        }}>
           {errors.submit}
         </div>
       )}
 
-      <Button type="submit" disabled={isLoading || !hasDownloadedData} className="w-full" size="lg">
+      {/* Submit */}
+      <button
+        type="submit"
+        disabled={isLoading || !hasDownloadedData}
+        className="apple-btn-primary"
+        style={{
+          width: '100%', justifyContent: 'center',
+          opacity: (isLoading || !hasDownloadedData) ? 0.6 : 1,
+          cursor: (isLoading || !hasDownloadedData) ? 'default' : 'pointer',
+        }}
+      >
         {isLoading ? (
-          <span className="flex items-center gap-2">
-            <svg
-              className="animate-spin h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-            >
-              <circle cx="12" cy="12" r="10" strokeWidth="4" className="opacity-25" />
-              <path
-                d="M4 12a8 8 0 018-8"
-                strokeWidth="4"
-                className="opacity-75"
-              />
-            </svg>
+          <>
+            <span style={{
+              width: 14, height: 14, borderRadius: '50%',
+              border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff',
+              display: 'inline-block', animation: 'spin 0.8s linear infinite',
+            }} />
             {loadingStep || 'Running...'}
-          </span>
-        ) : (
-          'Run Experiment'
-        )}
-      </Button>
+          </>
+        ) : 'Run Experiment'}
+      </button>
     </form>
   );
 }
