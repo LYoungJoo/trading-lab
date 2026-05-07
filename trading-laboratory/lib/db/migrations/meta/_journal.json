@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1777678597814,
+      "tag": "0000_young_triton",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777853590796,
+      "tag": "0001_romantic_madame_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777866127777,
+      "tag": "0002_parched_dracula",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1746316800000,
+      "tag": "0003_add_allocation_normalized",
+      "breakpoints": true
+    }
+  ]
+}

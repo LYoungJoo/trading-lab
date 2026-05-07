@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `evaluations_experiment_id_unique` ON `evaluations` (`experiment_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `strategies_experiment_id_unique` ON `strategies` (`experiment_id`);
