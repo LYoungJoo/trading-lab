@@ -1,130 +1,126 @@
 'use client';
 
-// T024 — ExperimentCard component
-// T030 — "Duplicate Config" button
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import type { Experiment, ExperimentStatus } from '@/lib/types';
 
-// ─────────────────────────────────────────────────────────────
-// Score badge helpers
-// ─────────────────────────────────────────────────────────────
-
-function getScoreColor(score: number | null | undefined): string {
-  if (score === null || score === undefined) return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
-  if (score >= 70) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-  if (score >= 40) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-  return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-}
-
-// ─────────────────────────────────────────────────────────────
-// Status pill
-// ─────────────────────────────────────────────────────────────
-
-const STATUS_STYLES: Record<ExperimentStatus, string> = {
-  pending:  'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  running:  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  complete: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  failed:   'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+const STATUS_COLOR: Record<ExperimentStatus, { bg: string; text: string }> = {
+  pending:  { bg: '#fff8e1', text: '#b45309' },
+  running:  { bg: '#e8f0fe', text: '#1a56db' },
+  complete: { bg: '#ecfdf5', text: '#065f46' },
+  failed:   { bg: '#fef2f2', text: '#b91c1c' },
 };
 
 function StatusPill({ status }: { status: ExperimentStatus }) {
+  const { bg, text } = STATUS_COLOR[status];
   return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[status]}`}
-    >
+    <span style={{
+      backgroundColor: bg,
+      color: text,
+      fontSize: 11,
+      fontWeight: 600,
+      lineHeight: 1,
+      letterSpacing: 0.2,
+      borderRadius: 9999,
+      padding: '3px 8px',
+      textTransform: 'capitalize' as const,
+    }}>
       {status}
     </span>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// ExperimentCard
-// ─────────────────────────────────────────────────────────────
+function ScoreBadge({ score }: { score: number }) {
+  const color = score >= 70 ? '#065f46' : score >= 40 ? '#b45309' : '#b91c1c';
+  const bg = score >= 70 ? '#ecfdf5' : score >= 40 ? '#fff8e1' : '#fef2f2';
+  return (
+    <span style={{
+      backgroundColor: bg,
+      color,
+      fontSize: 12,
+      fontWeight: 700,
+      borderRadius: 9999,
+      padding: '2px 8px',
+      lineHeight: 1.4,
+    }}>
+      {Math.round(score)}
+    </span>
+  );
+}
 
 interface ExperimentCardProps {
   experiment: Experiment;
-  rank: number | null; // null = unranked/unevaluated
+  rank: number | null;
 }
 
 export function ExperimentCard({ experiment, rank }: ExperimentCardProps) {
   const router = useRouter();
   const { id, name, status, config, evaluation } = experiment;
   const compositeScore = evaluation?.compositeScore ?? null;
-  const scoreColorClass = getScoreColor(compositeScore);
 
   function handleDuplicate(e: React.MouseEvent) {
-    e.preventDefault(); // don't follow the card link
+    e.preventDefault();
     e.stopPropagation();
     router.push(`/experiments/new?from=${id}`);
   }
 
   return (
-    <Link href={`/experiments/${id}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg">
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-        <CardContent className="py-4 px-5">
-          <div className="flex items-start gap-4">
-            {/* Rank number */}
-            <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-muted text-sm font-bold text-muted-foreground">
-              {rank !== null ? `#${rank}` : '—'}
-            </div>
+    <Link href={`/experiments/${id}`} style={{ textDecoration: 'none', display: 'block' }}>
+      <div
+        className="apple-card"
+        style={{ display: 'flex', alignItems: 'flex-start', gap: 16, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+        onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)')}
+        onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
+      >
+        {/* Rank */}
+        <div style={{
+          flexShrink: 0, width: 36, height: 36, borderRadius: '50%',
+          background: '#f5f5f7', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 12, fontWeight: 600, color: '#7a7a7a', marginTop: 2,
+        }}>
+          {rank !== null ? `#${rank}` : '—'}
+        </div>
 
-            {/* Main content */}
-            <div className="flex-1 min-w-0 space-y-2">
-              {/* Top row: name + status + score */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-base truncate">{name}</span>
-                <StatusPill status={status} />
-                {compositeScore !== null ? (
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${scoreColorClass}`}
-                  >
-                    {Math.round(compositeScore)}
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Config summary */}
-              <p className="text-xs text-muted-foreground">
-                {config.market} · {config.symbol} · {config.dateRange.start} – {config.dateRange.end}
-              </p>
-
-              {/* Score breakdown or "Not Evaluated" */}
-              {evaluation ? (
-                <div className="flex gap-3 flex-wrap text-xs text-muted-foreground">
-                  <span>
-                    Compliance <span className="font-medium text-foreground">{evaluation.complianceScore}</span>
-                  </span>
-                  <span>
-                    Risk <span className="font-medium text-foreground">{evaluation.riskQualityScore}</span>
-                  </span>
-                  <span>
-                    Clarity <span className="font-medium text-foreground">{evaluation.clarityScore}</span>
-                  </span>
-                </div>
-              ) : (
-                <span className="text-xs text-muted-foreground italic">Not Evaluated</span>
-              )}
-            </div>
-
-            {/* Duplicate button */}
-            <div className="flex-shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDuplicate}
-                className="text-xs"
-              >
-                Duplicate
-              </Button>
-            </div>
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+            <span style={{ fontWeight: 600, fontSize: 17, letterSpacing: '-0.374px', color: '#1d1d1f' }}>
+              {name}
+            </span>
+            <StatusPill status={status} />
+            {compositeScore !== null && <ScoreBadge score={compositeScore} />}
           </div>
-        </CardContent>
-      </Card>
+          <p style={{ fontSize: 14, color: '#7a7a7a', letterSpacing: '-0.224px', margin: 0 }}>
+            {config.market} · {config.symbol} · {config.dateRange.start} – {config.dateRange.end}
+          </p>
+          {evaluation ? (
+            <div style={{ display: 'flex', gap: 16, marginTop: 6, fontSize: 13, color: '#7a7a7a' }}>
+              <span>Compliance <strong style={{ color: '#1d1d1f' }}>{evaluation.complianceScore}</strong></span>
+              <span>Risk <strong style={{ color: '#1d1d1f' }}>{evaluation.riskQualityScore}</strong></span>
+              <span>Clarity <strong style={{ color: '#1d1d1f' }}>{evaluation.clarityScore}</strong></span>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: '#7a7a7a', fontStyle: 'italic', margin: '6px 0 0' }}>Not evaluated</p>
+          )}
+        </div>
+
+        {/* Duplicate button */}
+        <button
+          onClick={handleDuplicate}
+          style={{
+            flexShrink: 0, backgroundColor: '#fafafc', color: '#333333',
+            border: '1px solid #e0e0e0', borderRadius: 11, padding: '7px 13px',
+            fontSize: 13, fontWeight: 400, letterSpacing: '-0.224px', cursor: 'pointer',
+            transition: 'transform 0.1s', lineHeight: 1.29,
+          }}
+          onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.95)')}
+          onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+        >
+          Duplicate
+        </button>
+      </div>
     </Link>
   );
 }

@@ -5,9 +5,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { StrategyDisplay } from '@/components/StrategyDisplay';
 import { EvaluationPanel } from '@/components/EvaluationPanel';
 import type { Experiment, ExperimentStatus, EvaluationResult } from '@/lib/types';
@@ -16,18 +13,20 @@ import type { Experiment, ExperimentStatus, EvaluationResult } from '@/lib/types
 // Status badge
 // ─────────────────────────────────────────────────────────────
 
-const STATUS_STYLES: Record<ExperimentStatus, string> = {
-  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  running: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  complete: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+const STATUS_COLOR: Record<ExperimentStatus, { bg: string; text: string }> = {
+  pending:  { bg: '#fff8e1', text: '#b45309' },
+  running:  { bg: '#e8f0fe', text: '#1a56db' },
+  complete: { bg: '#ecfdf5', text: '#065f46' },
+  failed:   { bg: '#fef2f2', text: '#b91c1c' },
 };
 
 function StatusBadge({ status }: { status: ExperimentStatus }) {
+  const { bg, text } = STATUS_COLOR[status];
   return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_STYLES[status]}`}
-    >
+    <span style={{
+      backgroundColor: bg, color: text, fontSize: 12, fontWeight: 600,
+      borderRadius: 9999, padding: '3px 10px', textTransform: 'capitalize',
+    }}>
       {status}
     </span>
   );
@@ -37,76 +36,61 @@ function StatusBadge({ status }: { status: ExperimentStatus }) {
 // Config summary
 // ─────────────────────────────────────────────────────────────
 
+function Chip({ label }: { label: string }) {
+  return (
+    <span style={{
+      backgroundColor: '#f5f5f7', color: '#333333', border: '1px solid #e0e0e0',
+      borderRadius: 9999, padding: '3px 10px', fontSize: 12, fontWeight: 400, letterSpacing: '-0.12px',
+    }}>
+      {label}
+    </span>
+  );
+}
+
 function ConfigSummary({ experiment }: { experiment: Experiment }) {
   const { config } = experiment;
+  const activeRules = config.propFirmRules.filter((r) => r.enabled);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Configuration</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-          <div>
-            <dt className="font-medium text-muted-foreground">Market</dt>
-            <dd className="capitalize">{config.market}</dd>
+    <div className="apple-card">
+      <p style={{ fontSize: 11, fontWeight: 600, color: '#7a7a7a', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 20 }}>
+        Configuration
+      </p>
+      <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px 32px' }}>
+        {[
+          { label: 'Market', value: config.market },
+          { label: 'Symbol', value: config.symbol },
+          { label: 'Date Range', value: `${config.dateRange.start} – ${config.dateRange.end}` },
+          { label: 'Data Source', value: config.dataSource },
+        ].map(({ label, value }) => (
+          <div key={label}>
+            <dt style={{ fontSize: 11, color: '#7a7a7a', fontWeight: 400, letterSpacing: '-0.224px', marginBottom: 4 }}>{label}</dt>
+            <dd style={{ fontSize: 15, color: '#1d1d1f', fontWeight: 400 }}>{value}</dd>
           </div>
-          <div>
-            <dt className="font-medium text-muted-foreground">Symbol</dt>
-            <dd className="font-mono">{config.symbol}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-muted-foreground">Date Range</dt>
-            <dd>
-              {config.dateRange.start} – {config.dateRange.end}
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-muted-foreground">Data Source</dt>
-            <dd className="capitalize">{config.dataSource}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-muted-foreground">Timeframes</dt>
-            <dd className="flex flex-wrap gap-1">
-              {config.timeframes.map((tf) => (
-                <Badge key={tf} variant="secondary" className="text-xs">
-                  {tf}
-                </Badge>
-              ))}
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-muted-foreground">Indicators</dt>
-            <dd className="flex flex-wrap gap-1">
-              {config.indicators.length > 0 ? (
-                config.indicators.map((ind) => (
-                  <Badge key={ind} variant="secondary" className="text-xs">
-                    {ind}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-muted-foreground">None</span>
-              )}
-            </dd>
-          </div>
-          <div className="sm:col-span-2">
-            <dt className="font-medium text-muted-foreground">Active Prop Firm Rules</dt>
-            <dd className="flex flex-wrap gap-1 mt-1">
-              {config.propFirmRules.filter((r) => r.enabled).length > 0 ? (
-                config.propFirmRules
-                  .filter((r) => r.enabled)
-                  .map((r) => (
-                    <Badge key={r.name} variant="outline" className="text-xs">
-                      {r.name}
-                    </Badge>
-                  ))
-              ) : (
-                <span className="text-muted-foreground text-sm">None</span>
-              )}
-            </dd>
-          </div>
-        </dl>
-      </CardContent>
-    </Card>
+        ))}
+        <div>
+          <dt style={{ fontSize: 11, color: '#7a7a7a', fontWeight: 400, letterSpacing: '-0.224px', marginBottom: 6 }}>Timeframes</dt>
+          <dd style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {config.timeframes.map((tf) => <Chip key={tf} label={tf} />)}
+          </dd>
+        </div>
+        <div>
+          <dt style={{ fontSize: 11, color: '#7a7a7a', fontWeight: 400, letterSpacing: '-0.224px', marginBottom: 6 }}>Indicators</dt>
+          <dd style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {config.indicators.length > 0
+              ? config.indicators.map((ind) => <Chip key={ind} label={ind} />)
+              : <span style={{ color: '#7a7a7a', fontSize: 14 }}>None</span>}
+          </dd>
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <dt style={{ fontSize: 11, color: '#7a7a7a', fontWeight: 400, letterSpacing: '-0.224px', marginBottom: 6 }}>Active Prop Firm Rules</dt>
+          <dd style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {activeRules.length > 0
+              ? activeRules.map((r) => <Chip key={r.name} label={r.name} />)
+              : <span style={{ color: '#7a7a7a', fontSize: 14 }}>None</span>}
+          </dd>
+        </div>
+      </dl>
+    </div>
   );
 }
 
@@ -116,26 +100,30 @@ function ConfigSummary({ experiment }: { experiment: Experiment }) {
 
 function ExecutionLog({ log }: { log: string }) {
   const [open, setOpen] = useState(false);
-
   return (
-    <Card>
-      <CardHeader
-        className="cursor-pointer select-none"
+    <div className="apple-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <button
         onClick={() => setOpen((o) => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 24px', background: 'none', border: 'none', cursor: 'pointer',
+        }}
       >
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Execution Log</CardTitle>
-          <span className="text-muted-foreground text-sm">{open ? '▲ Hide' : '▼ Show'}</span>
-        </div>
-      </CardHeader>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#7a7a7a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          Execution Log
+        </span>
+        <span style={{ fontSize: 12, color: '#7a7a7a' }}>{open ? '▲ Hide' : '▼ Show'}</span>
+      </button>
       {open && (
-        <CardContent>
-          <pre className="text-xs bg-muted rounded-md p-3 overflow-x-auto whitespace-pre-wrap leading-relaxed">
-            {log}
-          </pre>
-        </CardContent>
+        <pre style={{
+          margin: 0, padding: '0 24px 20px', fontSize: 12, lineHeight: 1.6,
+          color: '#333333', whiteSpace: 'pre-wrap', overflowX: 'auto',
+          fontFamily: 'ui-monospace, "SF Mono", "Fira Code", monospace',
+        }}>
+          {log}
+        </pre>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -249,41 +237,21 @@ export default function ExperimentDetailPage() {
     }
   }
 
-  // T034 — Skeleton loader while fetching experiment data
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-          {/* Back link skeleton */}
-          <div className="animate-pulse space-y-3">
-            <div className="h-4 w-32 bg-muted rounded" />
-            <div className="flex items-center gap-3 mt-3">
-              <div className="h-8 w-64 bg-muted rounded" />
-              <div className="h-6 w-20 bg-muted rounded-full" />
-            </div>
-            <div className="h-4 w-48 bg-muted rounded" />
+      <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f7' }}>
+        <div style={{ backgroundColor: '#ffffff', padding: '48px 24px 40px', borderBottom: '1px solid #e0e0e0' }}>
+          <div style={{ maxWidth: 980, margin: '0 auto' }}>
+            <div style={{ width: 100, height: 14, background: '#e0e0e0', borderRadius: 4 }} />
+            <div style={{ width: 280, height: 34, background: '#e0e0e0', borderRadius: 4, marginTop: 20 }} />
           </div>
-          {/* Config card skeleton */}
-          <div className="animate-pulse border rounded-lg p-6 space-y-4">
-            <div className="h-5 w-32 bg-muted rounded" />
-            <div className="grid grid-cols-2 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="space-y-1">
-                  <div className="h-3 w-20 bg-muted rounded" />
-                  <div className="h-4 w-32 bg-muted rounded" />
-                </div>
-              ))}
+        </div>
+        <div style={{ maxWidth: 980, margin: '0 auto', padding: '40px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="apple-card" style={{ opacity: 0.5 }}>
+              <div style={{ height: 80, background: '#e0e0e0', borderRadius: 8 }} />
             </div>
-          </div>
-          {/* Strategy card skeleton */}
-          <div className="animate-pulse border rounded-lg p-6 space-y-4">
-            <div className="h-5 w-24 bg-muted rounded" />
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-24 bg-muted rounded-md" />
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     );
@@ -291,15 +259,11 @@ export default function ExperimentDetailPage() {
 
   if (error || !experiment) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md w-full">
-          <CardContent className="py-8 text-center space-y-4">
-            <p className="text-red-600 dark:text-red-400">{error ?? 'Experiment not found'}</p>
-            <Link href="/" className="text-sm text-blue-600 hover:underline">
-              ← Back to experiments
-            </Link>
-          </CardContent>
-        </Card>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="apple-card" style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
+          <p style={{ color: '#b91c1c', marginBottom: 16 }}>{error ?? 'Experiment not found'}</p>
+          <Link href="/" style={{ color: '#0066cc', fontSize: 14, textDecoration: 'none' }}>← Back to experiments</Link>
+        </div>
       </div>
     );
   }
@@ -307,100 +271,97 @@ export default function ExperimentDetailPage() {
   const canEvaluate = experiment.strategy && !evaluation;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        {/* Header */}
-        <div>
-          <Link
-            href="/"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Back to experiments
+    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f7' }}>
+      {/* White header tile */}
+      <div style={{ backgroundColor: '#ffffff', padding: '48px 24px 40px', borderBottom: '1px solid #e0e0e0' }}>
+        <div style={{ maxWidth: 980, margin: '0 auto' }}>
+          <Link href="/" style={{ fontSize: 14, color: '#7a7a7a', textDecoration: 'none', letterSpacing: '-0.224px' }}>
+            ← Experiments
           </Link>
-          <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold">{experiment.name}</h1>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: 34, fontWeight: 600, lineHeight: 1.47, letterSpacing: '-0.374px', color: '#1d1d1f', margin: 0 }}>
+                {experiment.name}
+              </h1>
               <StatusBadge status={experiment.status} />
             </div>
-            <Link href={`/experiments/new?from=${id}`}>
-              <Button variant="outline" size="sm">Duplicate Config</Button>
+            <Link href={`/experiments/new?from=${id}`} style={{
+              backgroundColor: '#fafafc', color: '#333333', border: '1px solid #e0e0e0',
+              borderRadius: 11, padding: '7px 13px', fontSize: 13, textDecoration: 'none',
+              letterSpacing: '-0.224px', flexShrink: 0,
+            }}>
+              Duplicate Config
             </Link>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p style={{ fontSize: 14, color: '#7a7a7a', letterSpacing: '-0.224px', marginTop: 8 }}>
             Created {new Date(experiment.createdAt).toLocaleString()}
             {experiment.completedAt && (
               <> · Completed {new Date(experiment.completedAt).toLocaleString()}</>
             )}
           </p>
         </div>
+      </div>
 
-        {/* Config summary */}
+      {/* Content — parchment */}
+      <div style={{ maxWidth: 980, margin: '0 auto', padding: '40px 24px 80px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <ConfigSummary experiment={experiment} />
 
-        {/* Execution log */}
-        {experiment.executionLog && (
-          <ExecutionLog log={experiment.executionLog} />
-        )}
+        {experiment.executionLog && <ExecutionLog log={experiment.executionLog} />}
 
         {/* Strategy */}
         {experiment.strategy ? (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Strategy</h2>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#7a7a7a', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
+              Strategy
+            </p>
             {experiment.strategy.allocationNormalized && (
-              <div className="rounded-md bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200">
-                ⚠️ The agent returned a total allocation above 100%. Allocations were proportionally normalised to sum to 100%.
+              <div style={{ background: '#fff8e1', border: '1px solid #fde68a', borderRadius: 11, padding: '12px 16px', fontSize: 14, color: '#92400e', marginBottom: 12 }}>
+                ⚠️ Allocations exceeded 100% and were proportionally normalised.
               </div>
             )}
             <StrategyDisplay strategy={experiment.strategy} />
           </div>
         ) : experiment.status === 'failed' ? (
-          <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
-            <CardContent className="py-6 text-center">
-              <p className="text-red-700 dark:text-red-300">
-                Strategy generation failed. Check the execution log for details.
-              </p>
-            </CardContent>
-          </Card>
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 18, padding: 24, textAlign: 'center', color: '#b91c1c', fontSize: 15 }}>
+            Strategy generation failed. Check the execution log above for details.
+          </div>
         ) : (
-          <Card>
-            <CardContent className="py-6 text-center text-muted-foreground">
-              No strategy generated yet.
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Evaluate button */}
-        {(canEvaluate || evaluating) && (
-          <div className="flex flex-col items-end gap-2">
-            <Button
-              onClick={() => void handleEvaluate()}
-              disabled={evaluating}
-              className="flex items-center gap-2"
-            >
-              {evaluating ? (
-                <>
-                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-                  Evaluating...
-                </>
-              ) : (
-                'Evaluate Strategy'
-              )}
-            </Button>
+          <div style={{ background: '#ffffff', border: '1px solid #e0e0e0', borderRadius: 18, padding: 24, textAlign: 'center', color: '#7a7a7a', fontSize: 15 }}>
+            No strategy generated yet.
           </div>
         )}
 
-        {/* Evaluation error */}
+        {/* Evaluate */}
+        {(canEvaluate || evaluating) && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => void handleEvaluate()}
+              disabled={evaluating}
+              className="apple-btn-primary"
+              style={{ opacity: evaluating ? 0.6 : 1 }}
+            >
+              {evaluating ? (
+                <>
+                  <span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                  Evaluating…
+                </>
+              ) : 'Evaluate Strategy'}
+            </button>
+          </div>
+        )}
+
         {evaluationError && (
-          <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-300">
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 11, padding: '12px 16px', color: '#b91c1c', fontSize: 14 }}>
             {evaluationError}
           </div>
         )}
 
-        {/* Evaluation panel */}
         {evaluating && <EvaluationPanel evaluation={null} loading />}
         {!evaluating && evaluation && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Evaluation</h2>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#7a7a7a', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
+              Evaluation
+            </p>
             <EvaluationPanel evaluation={evaluation} />
           </div>
         )}

@@ -29,4 +29,4 @@ Use these in order:
 - `/speckit-clarify` — clarifying questions (done ✅)
 - `/speckit-plan` — implementation plan
 - `/speckit-tasks` — task list
-- `/speckit-implement` — implementation
+- `/speckit-implement` — implementation (done ✅)

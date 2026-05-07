@@ -5,26 +5,64 @@ import { usePathname } from 'next/navigation';
 
 export default function Nav() {
   const pathname = usePathname();
+
   return (
-    <nav className="border-b bg-background">
-      <div className="max-w-5xl mx-auto px-6 h-14 flex items-center gap-6">
-        <span className="font-semibold text-sm">Trading Laboratory</span>
-        <div className="flex gap-1">
+    <nav
+      style={{ backgroundColor: '#000000', height: 44 }}
+      className="flex items-center px-6 sticky top-0 z-50"
+    >
+      <div className="max-w-[1440px] mx-auto w-full flex items-center gap-8">
+        {/* Brand */}
+        <Link
+          href="/"
+          style={{
+            color: '#ffffff',
+            fontSize: 12,
+            fontWeight: 400,
+            lineHeight: 1,
+            letterSpacing: '-0.12px',
+            textDecoration: 'none',
+          }}
+        >
+          Trading Laboratory
+        </Link>
+
+        {/* Nav links */}
+        <div className="flex items-center gap-6">
           <Link
             href="/"
-            className={`px-3 py-1.5 rounded text-sm transition-colors ${
-              pathname === '/' ? 'bg-accent font-medium' : 'text-muted-foreground hover:text-foreground'
-            }`}
+            style={{
+              color: pathname === '/' ? '#ffffff' : 'rgba(255,255,255,0.6)',
+              fontSize: 12,
+              fontWeight: 400,
+              lineHeight: 1,
+              letterSpacing: '-0.12px',
+              textDecoration: 'none',
+              transition: 'color 0.15s',
+            }}
           >
             Experiments
           </Link>
           <Link
             href="/data-storage"
-            className={`px-3 py-1.5 rounded text-sm transition-colors ${
-              pathname === '/data-storage' ? 'bg-accent font-medium' : 'text-muted-foreground hover:text-foreground'
-            }`}
+            style={{
+              color: pathname === '/data-storage' ? '#ffffff' : 'rgba(255,255,255,0.6)',
+              fontSize: 12,
+              fontWeight: 400,
+              lineHeight: 1,
+              letterSpacing: '-0.12px',
+              textDecoration: 'none',
+              transition: 'color 0.15s',
+            }}
           >
             Data Storage
+          </Link>
+        </div>
+
+        {/* Right CTA */}
+        <div className="ml-auto">
+          <Link href="/experiments/new" className="apple-btn-primary" style={{ fontSize: 12, padding: '6px 14px' }}>
+            New Experiment
           </Link>
         </div>
       </div>
